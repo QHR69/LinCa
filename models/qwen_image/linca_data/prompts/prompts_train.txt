@@ -1,0 +1,400 @@
+A red colored car.
+A black colored car.
+A pink colored car.
+A black colored dog.
+A red colored dog.
+A blue colored dog.
+A green colored banana.
+A red colored banana.
+A black colored banana.
+A white colored sandwich.
+A black colored sandwich.
+An orange colored sandwich.
+A pink colored giraffe.
+A yellow colored giraffe.
+A brown colored giraffe.
+A red car and a white sheep.
+A blue bird and a brown bear.
+A green apple and a black backpack.
+A green cup and a blue cell phone.
+A yellow book and a red vase.
+A white car and a red sheep.
+A brown bird and a blue bear.
+A black apple and a green backpack.
+A blue cup and a green cell phone.
+A red book and a yellow vase.
+A horse riding an astronaut.
+A pizza cooking an oven.
+A bird scaring a scarecrow.
+A blue coloured pizza.
+Hovering cow abducting aliens.
+A panda making latte art.
+A shark in the desert.
+An elephant under the sea.
+Rainbow coloured penguin.
+A fish eating a pelican.
+One car on the street.
+Two cars on the street.
+Three cars on the street.
+Four cars on the street.
+Five cars on the street.
+One dog on the street.
+Two dogs on the street.
+Three dogs on the street.
+Four dogs on the street.
+Five dogs on the street.
+One cat and one dog sitting on the grass.
+One cat and two dogs sitting on the grass.
+One cat and three dogs sitting on the grass.
+Two cats and one dog sitting on the grass.
+Two cats and two dogs sitting on the grass.
+Two cats and three dogs sitting on the grass.
+Three cats and one dog sitting on the grass.
+Three cats and two dogs sitting on the grass.
+Three cats and three dogs sitting on the grass.
+A triangular purple flower pot. A purple flower pot in the shape of a triangle.
+A triangular orange picture frame. An orange picture frame in the shape of a triangle.
+A triangular pink stop sign. A pink stop sign in the shape of a triangle.
+A cube made of denim. A cube with the texture of denim.
+A sphere made of kitchen tile. A sphere with the texture of kitchen tile.
+A cube made of brick. A cube with the texture of brick.
+A collection of nail is sitting on a table.
+A single clock is sitting on a table.
+A couple of glasses are sitting on a table.
+An illustration of a large red elephant sitting on a small blue mouse.
+An illustration of a small green elephant standing behind a large red mouse.
+A small blue book sitting on a large red book.
+"A stack of 3 plates. A blue plate is on the top, sitting on a blue plate. The blue plate is in the middle, sitting on a green plate. The green plate is on the bottom."
+"A stack of 3 cubes. A red cube is on the top, sitting on a red cube. The red cube is in the middle, sitting on a green cube. The green cube is on the bottom."
+"A stack of 3 books. A green book is on the top, sitting on a red book. The red book is in the middle, sitting on a blue book. The blue book is on the bottom."
+"An emoji of a baby panda wearing a red hat, green gloves, red shirt, and green pants."
+"An emoji of a baby panda wearing a red hat, blue gloves, green shirt, and blue pants."
+A fisheye lens view of a turtle sitting in a forest.
+A side view of an owl sitting in a field.
+A cross-section view of a brain.
+"A vehicle composed of two wheels held in a frame one behind the other, propelled by pedals and steered with handlebars attached to the front wheel."
+"A large motor vehicle carrying passengers by road, typically one serving the public on a fixed route and for a fare."
+"A small vessel propelled on water by oars, sails, or an engine."
+A connection point by which firefighters can tap into a water supply.
+"A machine next to a parking space in a street, into which the driver puts money so as to be authorized to park the vehicle for a particular length of time."
+"A device consisting of a circular canopy of cloth on a folding metal frame supported by a central rod, used as protection against rain or sometimes sun."
+"A separate seat for one person, typically with a back and four legs."
+An appliance or compartment which is artificially kept cool and used to store food and drink.
+A mechanical or electrical device for measuring time.
+"An instrument used for cutting cloth, paper, and other thin material, consisting of two blades laid one on top of the other and fastened in the middle so as to allow them to be opened and closed by a thumb and finger inserted through rings on the end of their handles."
+"A large plant-eating domesticated mammal with solid hoofs and a flowing mane and tail, used for riding, racing, and to carry and pull loads."
+A long curved fruit which grows in clusters and has soft pulpy flesh and yellow skin when ripe.
+"A small domesticated carnivorous mammal with soft fur, a short snout, and retractable claws. It is widely kept as a pet or for catching mice, and many breeds have been developed."
+"A domesticated carnivorous mammal that typically has a long snout, an acute sense of smell, nonretractable claws, and a barking, howling, or whining voice."
+"An organ of soft nervous tissue contained in the skull of vertebrates, functioning as the coordinating center of sensation and intellectual and nervous activity."
+"An American multinational technology company that focuses on artificial intelligence, search engine, online advertising, cloud computing, computer software, quantum computing, e-commerce, and consumer electronics."
+"A large keyboard musical instrument with a wooden case enclosing a soundboard and metal strings, which are struck by hammers when the keys are depressed. The strings' vibration is stopped by dampers when the keys are released and can be regulated for length and volume by two or three pedals."
+"A type of digital currency in which a record of transactions is maintained and new units of currency are generated by the computational solution of mathematical problems, and which operates independently of a central bank."
+"A large thick-skinned semiaquatic African mammal, with massive jaws and large tusks."
+A machine resembling a human being and able to replicate certain human movements and functions automatically.
+Paying for a quarter-sized pizza with a pizza-sized quarter.
+An oil painting of a couple in formal evening wear going home get caught in a heavy downpour with no umbrellas.
+"A grocery store refrigerator has pint cartons of milk on the top shelf, quart cartons on the middle shelf, and gallon plastic jugs on the bottom shelf."
+"In late afternoon in January in New England, a man stands in the shadow of a maple tree."
+An elephant is behind a tree. You can see the trunk on one side and the back legs on the other.
+A tomato has been put on top of a pumpkin on a kitchen stool. There is a fork sticking into the pumpkin. The scene is viewed from above.
+A pear cut into seven pieces arranged in a ring.
+"A donkey and an octopus are playing a game. The donkey is holding a rope on one end, the octopus is holding onto the other. The donkey holds the rope in its mouth. A cat is jumping over the rope."
+"Supreme Court Justices play a baseball game with the FBI. The FBI is at bat, the justices are on the field."
+Abraham Lincoln touches his toes while George Washington does chin-ups. Lincoln is barefoot. Washington is wearing boots.
+Tcennis rpacket.
+Bzaseball galove.
+Rbefraigerator.
+Dininrg tablez.
+Pafrking metr.
+"A smafml vessef epropoeilled on watvewr by ors, sauls, or han engie."
+"A sjmall domesticated carnivorious mammnal with sof fuh,y a sthort sout, and retracwtablbe flaws. It iw widexly kept as a pet or for catchitng mic, ad many breeds zhlyde beefn develvoked."
+"An instqrumemnt used for cutting cloth, paper, axdz othr thdin mteroial, consamistng of two blades lad one on tvopb of the other and fhastned in tle mixdqdjle so as to bllow them txo be pened and closed by thumb and fitngesr inserted tgrough rings on kthe end oc thei vatndlzes."
+"A domesticated carnivvorous mzammal that typicbally hfaas a lons sfnout, an acxujte sense off osmell, noneetractaaln crlaws, anid xbarkring,y howlingu, or whining rvoiche."
+"A ldarge keybord msical instroument lwith a woden case enmclosig a qsouvnkboajrd and mfgtal strivgf, which are strucrk b hammrs when the nels are depresdsmed.f lhe strsingsj' vibration ie stopped by damperds when the keys re released and can bce regulavewdd for lengh and vnolume y two or three pedalvs."
+A train on top of a surfboard.
+A wine glass on top of a dog.
+A bicycle on top of a boat.
+An umbrella on top of a spoon.
+A laptop on top of a teddy bear.
+A giraffe underneath a microwave.
+A donut underneath a toilet.
+A hair drier underneath a sheep.
+A tennis racket underneath a traffic light.
+A zebra underneath a broccoli.
+A banana on the left of an apple.
+A couch on the left of a chair.
+A car on the left of a bus.
+A cat on the left of a dog.
+A carrot on the left of a broccoli.
+A pizza on the right of a suitcase.
+A cat on the right of a tennis racket.
+A stop sign on the right of a refrigerator.
+A sheep to the right of a wine glass.
+A zebra to the right of a fire hydrant.
+Acersecomicke.
+Jentacular.
+Matutinal.
+Peristeronic.
+Artophagous.
+Backlotter.
+Octothorpe.
+A church with stained glass windows depicting a hamburger and french fries.
+"Painting of the orange cat Otto von Garfield, Count of Bismarck-Schönhausen, Duke of Lauenburg, Minister-President of Prussia. Depicted wearing a Prussian Pickelhaube and eating his favorite meal - lasagna."
+"A baby fennec sneezing onto a strawberry, detailed, macro, studio light, droplets, backlit ears."
+A photo of a confused grizzly bear in calculus class.
+An ancient Egyptian painting depicting an argument over whose turn it is to take out the trash.
+"A fluffy baby sloth with a knitted hat trying to figure out a laptop, close up, highly detailed, studio lighting, screen reflecting in its eyes."
+"A tiger in a lab coat with a 1980s Miami vibe, turning a well oiled science content machine, digital art."
+A 1960s yearbook photo with animals dressed as humans.
+Lego Arnold Schwarzenegger.
+A yellow and black bus cruising through the rainforest.
+A medieval painting of the wifi not working.
+"An IT-guy trying to fix hardware of a PC tower is being tangled by the PC cables like Laokoon. Marble, copy after Hellenistic original from ca. 200 BC. Found in the Baths of Trajan, 1506."
+"35mm macro shot a kitten licking a baby duck, studio lighting."
+McDonalds Church.
+Photo of an athlete cat explaining it's latest scandal at a press conference to journalists.
+Greek statue of a man tripping over a cat.
+"An old photograph of a 1920s airship shaped like a pig, floating over a wheat field."
+Photo of a cat singing in a barbershop quartet.
+"A painting by Grant Wood of an astronaut couple, american gothic style."
+An oil painting portrait of the regal Burger King posing with a Whopper.
+"A keyboard made of water, the water is made of light, the light is turned off."
+Painting of Mona Lisa but the view is from behind of Mona Lisa.
+Hyper-realistic photo of an abandoned industrial site during a storm.
+A screenshot of an iOS app for ordering different types of milk.
+"A real life photography of super mario, 8k Ultra HD."
+Colouring page of large cats climbing the eifel tower in a cyberpunk future.
+Photo of a mega Lego space station inside a kid's bedroom.
+A spider with a moustache bidding an equally gentlemanly grasshopper a good day during his walk to work.
+A photocopy of a photograph of a painting of a sculpture of a giraffe.
+"A bridge connecting Europe and North America on the Atlantic Ocean, bird's eye view."
+"A maglev train going vertically downward in high speed, New York Times photojournalism."
+A magnifying glass over a page of a 1950s batman comic.
+"A car playing soccer, digital art."
+Darth Vader playing with raccoon in Mars during sunset.
+A 1960s poster warning against climate change.
+Illustration of a mouse using a mushroom as an umbrella.
+A realistic photo of a Pomeranian dressed up like a 1980s professional wrestler with neon green and neon orange face paint and bright green wrestling tights with bright orange boots.
+A pyramid made of falafel with a partial solar eclipse in the background.
+A storefront with 'Hello World' written on it.
+A storefront with 'Diffusion' written on it.
+A storefront with 'Text to Image' written on it.
+A storefront with 'NeurIPS' written on it.
+A storefront with 'Deep Learning' written on it.
+A storefront with 'Google Brain Toronto' written on it.
+A storefront with 'Google Research Pizza Cafe' written on it.
+A sign that says 'Hello World'.
+A sign that says 'Diffusion'.
+A sign that says 'Text to Image'.
+A sign that says 'NeurIPS'.
+A sign that says 'Deep Learning'.
+A sign that says 'Google Brain Toronto'.
+A sign that says 'Google Research Pizza Cafe'.
+New York Skyline with 'Hello World' written with fireworks on the sky.
+New York Skyline with 'Diffusion' written with fireworks on the sky.
+New York Skyline with 'Text to Image' written with fireworks on the sky.
+New York Skyline with 'NeurIPS' written with fireworks on the sky.
+New York Skyline with 'Deep Learning' written with fireworks on the sky.
+New York Skyline with 'Google Brain Toronto' written with fireworks on the sky.
+New York Skyline with 'Google Research Pizza Cafe' written with fireworks on the sky.
+A red apple on a white plate, soft morning light.
+A lemon on a blue background, studio shot.
+A glass of iced coffee with condensation, close-up.
+A bowl of ramen with steam rising, top-down view.
+A single sunflower in a clear vase, bright window light.
+A black umbrella with raindrops, moody lighting.
+A stack of three books with a ribbon bookmark.
+A minimal ceramic mug on a wooden table.
+A croissant on a small plate, café vibe.
+A seashell on wet sand, gentle waves behind.
+A mechanical keyboard close-up, colorful keycaps.
+A vintage film camera on a desk.
+A chess king piece under a spotlight.
+A perfume bottle on satin fabric, soft reflections.
+A pair of sunglasses on a pastel surface.
+A strawberry with water droplets, macro photography.
+A small cactus in a pot, clean composition.
+A paper airplane on a notebook page.
+A teapot and two cups on a tray.
+A bowl of blueberries, shallow depth of field.
+A slice of watermelon on a cutting board.
+A glass marble on a dark surface, dramatic highlights.
+A shiny coin on a table, macro shot.
+A tiny toy car on a windowsill.
+A lit candle in a dark room, warm glow.
+A simple wristwatch on black velvet.
+A bouquet of tulips wrapped in brown paper.
+A bowl of dumplings, chopsticks beside it.
+A donut with colorful sprinkles on a napkin.
+A pair of running shoes on the floor, afternoon light.
+A single white feather on a black background.
+A jar of honey with a wooden dipper.
+A cute plush teddy bear sitting on a bed.
+A clean flat-lay of stationery: pen, eraser, ruler.
+A blue butterfly on a leaf, close-up.
+A bowl of oranges in a wicker basket.
+A simple sandwich cut in half, top-down.
+A small potted bonsai on a table.
+A spoon with a mirrored reflection, minimal.
+A slice of chocolate cake on a plate.
+A shiny balloon floating against a clear sky.
+A single pear on a linen cloth.
+A bowl of cereal with milk splash frozen in time.
+A pair of headphones on a chair.
+A ribbon-tied gift box on a plain background.
+A snow globe on a shelf, bokeh lights behind.
+A wooden chair against a blank wall, soft shadow.
+A bright red tomato on a cutting board.
+A small glass bottle with a cork, close-up.
+A bar of soap on a ceramic dish, clean bathroom style.
+A cupcake with a single cherry on top, pastel palette.
+A shiny metal key on stone.
+A pair of chopsticks resting on a bowl.
+A white plate with three macarons, minimal.
+A fountain pen on textured paper, close-up.
+A folded umbrella leaning against a wall.
+A simple bowl of soup with herbs on top.
+A single maple leaf on wet pavement.
+A mug of hot cocoa with marshmallows.
+A cute rubber duck in a bathtub, playful style.
+A cozy reading corner with a floor lamp and blanket.
+A minimalist bedroom with sunlight through curtains.
+A messy artist desk with paint tubes and brushes.
+A small café table with coffee and pastry, candid photo style.
+A quiet bookstore aisle, warm ambient lights.
+A kitchen counter with fresh vegetables, natural light.
+A rainy window with droplets, city blur outside.
+A neon-lit street at night, reflections on wet pavement.
+A tiny kitchen at night lit only by a fridge glow.
+A laundry room with clothes hanging, soft daylight.
+A tidy home office with a plant and notebook.
+A hallway with a single framed painting, dramatic shadow.
+A bathroom mirror with steam fog, soft light.
+A record player on a wooden cabinet, cozy evening mood.
+A simple dining table set for one, warm light.
+A greenhouse interior full of plants, sun rays.
+A subway platform with a train arriving, slight motion blur.
+A cinema hallway with posters, dim light.
+A library room with tall shelves and sunbeams.
+A small balcony with a chair and potted plant.
+A narrow alley with hanging lanterns at dusk.
+A street food stall with steam and warm lights.
+A quiet neighborhood street in autumn leaves.
+A snowy street at night with glowing windows.
+A modern museum exterior, clean lines, daylight.
+A glass skyscraper reflecting clouds, wide angle.
+A canal with small boats, calm morning.
+A bridge over a river at sunset, long shadows.
+A park bench under a big tree, peaceful mood.
+A rooftop view of city lights, soft bokeh.
+A beach at sunset with gentle waves, cinematic framing.
+A calm lake at sunrise, light fog.
+A forest path with sun rays through trees.
+A field of wildflowers, breezy afternoon.
+A bamboo forest with soft green light.
+A mountain ridge with clouds rolling in.
+A waterfall in a lush jungle, misty air.
+A desert dune with strong highlights and shadows.
+A snowy pine forest, quiet atmosphere.
+A stormy sky over a flat field, dramatic clouds.
+A picnic blanket on grass with fruit and lemonade.
+A cat sitting on a windowsill watching rain.
+A dog sleeping on a rug, warm lamp light.
+A person holding a cup of tea by the window, calm mood.
+A baker placing bread on a cooling rack, warm tones.
+A barista making latte art, close-up hands.
+A chef chopping vegetables on a wooden board, overhead.
+A street portrait under soft overcast daylight.
+A person walking with an umbrella in light rain.
+A traveler with backpack looking at mountains, sunrise.
+A cyclist passing through a quiet street, motion blur.
+A person reading a book in a café, shallow depth.
+A musician holding a guitar, simple studio background.
+A dancer practicing in a bright room, airy feel.
+A person looking out of a train window, rain streaks.
+A silhouette under a streetlight, foggy night.
+A close-up portrait with freckles, soft light.
+A portrait with colorful neon reflections on the face.
+A person in snowfall wearing a winter coat, gentle flakes.
+A small group of friends at a café table, candid moment.
+A simple flat vector icon of a teacup on a pastel background.
+A watercolor painting of a small cottage by a lake.
+A pencil sketch of a sunflower in a vase.
+A children’s book illustration of a friendly fox holding a lantern.
+A pixel art scene of a tiny bedroom at night with a window.
+A 3D render of a glossy red balloon, studio backdrop.
+A 3D toy robot standing on a desk, soft shadows.
+A claymation-style cat sitting on a couch, cozy colors.
+A minimalist poster design featuring a mountain silhouette and sun.
+A retro 80s neon grid landscape with a pink sun.
+A comic panel of a person buying coffee at a small kiosk.
+A simple anime-style portrait with soft pastel hair colors.
+A cel-shaded illustration of a bicycle leaning against a wall.
+An oil painting of a bowl of fruit on a table.
+A line-art drawing of a city skyline, clean strokes.
+A paper-cut collage style scene of a forest with deer.
+A low-poly 3D mountain landscape, bright sky.
+A stylized isometric room with a bed and desk, clean shapes.
+A cozy gouache illustration of a rainy street with umbrellas.
+A dreamy illustration of floating lanterns over a river at night.
+A simple logo-like illustration of a hummingbird, clean vector.
+A pastel gradient background with a single silhouette of a palm tree.
+A cute sticker-style illustration of a dumpling with a smile.
+A retro film poster style image of a lighthouse by the sea.
+A monochrome ink illustration of an old camera.
+A bright flat design of fruits arranged in a circle.
+A minimal 3D render of a white mug on a marble block.
+A sci-fi corridor, clean design, soft blue lights.
+A futuristic city skyline at dusk, stylized but detailed.
+A fantasy marketplace street, warm lantern light, light crowd.
+A simple storybook illustration of a small dragon sleeping on books.
+A watercolor painting of cherry blossoms falling on a path.
+A graphite sketch of a hand holding a flower.
+A cute chibi character holding an umbrella, simple background.
+A stained-glass style illustration of a moon and stars.
+A paper origami crane on a desk, gentle light.
+A 3D render of a glass marble with rainbow caustics.
+A surreal scene: a door standing alone in a foggy field.
+A cozy cabin interior illustration with a fireplace.
+A low-detail cartoon scene of a cat chasing a butterfly.
+A simple poster: “summer vibes” theme without text, just icons.
+An isometric city block with a tiny park and cars.
+A stylized watercolor ocean wave, clean composition.
+A neon cyberpunk alley, stylized lighting, simple layout.
+A soft pastel illustration of a café storefront.
+A clay render of a bowl of ramen, playful.
+A minimalist black-and-white photograph of a staircase.
+A long-exposure style photo of a river at dusk.
+A close-up macro of leaf veins, abstract pattern.
+A simple still life with a candle, book, and glasses, warm mood.
+A clean white sign with bold black text: “HELLO”, centered.
+A simple neon sign that says “OPEN”, readable letters.
+A label on a jar reading “SALT”, close-up.
+A plain poster with big text “SALE”, centered.
+A door sign that says “EXIT”, clear letters.
+A sticky note with big text “TODO”, close-up.
+A simple street sign reading “STOP”, clear and front-facing.
+A product box with large text “SOAP”, minimal packaging.
+A coffee cup sleeve with text “COFFEE”, big letters.
+A notebook cover with big text “NOTES”, centered.
+A simple tag with text “GIFT”, readable.
+A small sign on a table reading “RESERVED”, clear letters.
+A calendar page showing “JAN”, big letters.
+A receipt header reading “TOTAL”, close-up.
+A poster with big text “WELCOME”, centered.
+Two apples on a plate, one red and one green, soft light.
+A cup of coffee next to a croissant on a café table.
+A vase of flowers next to a stack of books on a desk.
+A laptop, a notebook, and a pen on a tidy desk, top-down.
+A cat sitting beside a potted plant, window light.
+A person holding a bouquet, background softly blurred.
+A bicycle parked next to a brick wall, afternoon light.
+A street food stall with two customers, warm lights.
+A small boat on calm water with mountains in the distance.
+A cabin in a snowy forest with smoke from the chimney.
+A rainy night street with a person crossing under an umbrella.
+A simple portrait with soft rim light and calm expression.
+A person looking at the ocean at sunset, wide framing.
+A city skyline with fireworks in the distance, night scene.
+A quiet street at dawn with long shadows and empty sidewalks.

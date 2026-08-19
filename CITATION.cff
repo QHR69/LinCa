@@ -1,0 +1,63 @@
+cff-version: 1.2.0
+message: If you use LinCa, please cite the paper below.
+title: "LinCa: Accelerating Diffusion Models via Learnable Decomposed Feature Caching"
+type: software
+authors:
+  - family-names: Liu
+    given-names: Jinshan
+  - family-names: Qin
+    given-names: Haoran
+  - family-names: Tu
+    given-names: Xiaobing
+  - family-names: Liu
+    given-names: Jiacheng
+  - family-names: Hu
+    given-names: Jiahui
+  - family-names: Yan
+    given-names: Zhengan
+  - family-names: Xie
+    given-names: Yukun
+  - family-names: Shen
+    given-names: Kerui
+  - family-names: Ren
+    given-names: Jinkui
+  - family-names: Lin
+    given-names: Yuqi
+  - family-names: Zhang
+    given-names: Xiantao
+  - family-names: Zhang
+    given-names: Linfeng
+url: https://github.com/QHR69/LinCa
+repository-code: https://github.com/QHR69/LinCa
+license: Apache-2.0
+preferred-citation:
+  type: article
+  title: "LinCa: Accelerating Diffusion Models via Learnable Decomposed Feature Caching"
+  authors:
+    - family-names: Liu
+      given-names: Jinshan
+    - family-names: Qin
+      given-names: Haoran
+    - family-names: Tu
+      given-names: Xiaobing
+    - family-names: Liu
+      given-names: Jiacheng
+    - family-names: Hu
+      given-names: Jiahui
+    - family-names: Yan
+      given-names: Zhengan
+    - family-names: Xie
+      given-names: Yukun
+    - family-names: Shen
+      given-names: Kerui
+    - family-names: Ren
+      given-names: Jinkui
+    - family-names: Lin
+      given-names: Yuqi
+    - family-names: Zhang
+      given-names: Xiantao
+    - family-names: Zhang
+      given-names: Linfeng
+  year: 2026
+  journal: "arXiv preprint arXiv:2608.17973"
+  url: https://arxiv.org/abs/2608.17973

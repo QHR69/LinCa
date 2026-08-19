@@ -1,0 +1,21 @@
+LinCa
+Copyright 2026 LinCa authors
+
+This project is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+
+This repository also redistributes and/or depends on third-party code.
+Those components remain under their original licenses. Please review the
+license files shipped with each model subtree (or the corresponding
+upstream project) before use.
+
+Third-party projects referenced by this repository include:
+
+  - FLUX.1 (Black Forest Labs)
+  - Qwen-Image / Qwen-Image-Edit (Alibaba / Qwen)
+  - HunyuanVideo (Tencent)
+  - Wan2.1 (Wan-Video)
+
+LinCa predictor weights released on Hugging Face are provided for
+research use together with this code. Backbone (base model) weights are
+not redistributed here; obtain them from their official sources.

@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.ipynb_checkpoints/
+
+# Weights and generated media (hosted on Hugging Face)
+*.pt
+*.pth
+*.safetensors
+*.ckpt
+*.bin
+samples/
+outputs/
+cache_data/
+checkpoints/
+wandb/
+*.mp4
+*.avi
+
+# Local data
+data/
+*.docx
+assets/_embedded/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

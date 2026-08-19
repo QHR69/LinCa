@@ -1,0 +1,2 @@
+from .wan_t2v_generate import wan_t2v_generate
+from .wan_i2v_generate import wan_i2v_generate
