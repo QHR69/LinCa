@@ -38,7 +38,7 @@ def _build_predictor_from_state(config: Dict, state_dict: Dict, device: str) -> 
         dropout=config.get('dropout', 0.1),
     )
 
-    # 与 from_pretrained 对齐：组合 checkpoint 里可能包含预计算的 weight_inv buffer
+    # Matching from_pretrained: a combined checkpoint may carry precomputed weight_inv buffers
     inv_weights = {k: v for k, v in state_dict.items() if k.endswith('.weight_inv')}
     main_weights = {k: v for k, v in state_dict.items() if not k.endswith('.weight_inv')}
 
@@ -301,19 +301,3 @@ def cache_step_merge(cache_dic: Dict, current: Dict) -> torch.Tensor:
     else:
         from .cache_utils import cache_step_merge as original_func
         return original_func(cache_dic, current)
-
-
-
-
-def pipeline_with_learned_cache(pipe, checkpoint_path: str = None, checkpoint_path_stage2: str = None):
-    """Configure learned caching on a pipeline (two-stage: pass two paths)"""
-    import types
-    from pipeline.transformer_qwenimage import QwenImageTransformer2DModel as LocalQwenImageTransformer2DModel
-    
-    pipe.transformer.forward = types.MethodType(LocalQwenImageTransformer2DModel.forward, pipe.transformer)
-    
-    if checkpoint_path is not None and checkpoint_path_stage2 is not None:
-        device = next(pipe.transformer.parameters()).device
-        load_predictor(checkpoint_path, checkpoint_path_stage2, device=str(device))
-    
-    return pipe

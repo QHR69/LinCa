@@ -1,6 +1,0 @@
-name: hunyuanvideo
-channels:
-  - defaults
-dependencies:
-  - python=3.10
-# prefix omitted

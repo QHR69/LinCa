@@ -1,37 +1,37 @@
 #!/bin/bash
-# HunyuanVideo 推理+VBench评估脚本
-# 使用训练好的 learned predictor 进行 cache 加速推理
-# 循环跑多个 INTERVAL，生成视频用于 VBench 评估
+# HunyuanVideo cache-accelerated sampling, for VBench scoring.
+# Uses a trained LinCa predictor to skip most DiT evaluations,
+# sweeping several intervals and writing videos for VBench to score.
 
-# === 设置环境变量 ===
+# === Environment ===
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export PYTHONPATH="${SCRIPT_DIR}/src:${PYTHONPATH}"
 export MODEL_BASE=./checkpoints/hunyuanvideo
 
-# === 检查 checkpoint ===
-CHECKPOINT="${1:-outputs/hunyuan_v4_learned_b_6_h_1024_splits_2304x384x384_intervals_3x4x5x6x7x8x9x10_epochs_100_dropout_0.0_seed_42_20260222_214417/best_predictor.pt}"
+# === Check the checkpoint ===
+CHECKPOINT="${1:-outputs/hunyuan_linca_b_6_h_1024_splits_2304x384x384_intervals_3x4x5x6x7x8x9x10_epochs_100_dropout_0.0_seed_42_20260222_214417/best_predictor.pt}"
 
 if [ ! -f "$CHECKPOINT" ]; then
-    echo "错误: checkpoint文件不存在: $CHECKPOINT"
+    echo "Error: checkpoint not found: $CHECKPOINT"
     echo "Usage: bash run_sample.sh [checkpoint_path]"
-    echo "示例: bash run_sample.sh outputs/hunyuan_v4_learned_.../best_predictor.pt"
+    echo "Example: bash run_sample.sh outputs/hunyuan_linca_.../best_predictor.pt"
     exit 1
 fi
 
-# === 从 checkpoint 路径提取实验名称 ===
+# === Derive the experiment name from the checkpoint path ===
 EXP_NAME=$(basename $(dirname "$CHECKPOINT"))
-echo "实验名称: $EXP_NAME"
+echo "Experiment: $EXP_NAME"
 echo "Checkpoint: $CHECKPOINT"
 
-# === 模型路径 ===
+# === Backbone weights ===
 MODEL_CKPTS=./checkpoints/hunyuanvideo
 DIT_WEIGHT=${MODEL_CKPTS}/hunyuan-video-t2v-720p/transformers/mp_rank_00_model_states.pt
 VBENCH_JSON=./data/VBench_full_info.json
 
-# === 推理参数 ===
+# === Sampling ===
 SEED=42
 
-# Cache参数 (与训练一致)
+# Cache settings, which must match training
 MAX_ORDER=2
 MIN_ORDER=0
 FIRST_ENHANCE=3
@@ -41,19 +41,19 @@ FORECAST_METHOD="hermite"
 BASE_OUTPUT_DIR="samples/${EXP_NAME}_infer"
 mkdir -p "$BASE_OUTPUT_DIR"
 
-echo "总Output directory: $BASE_OUTPUT_DIR"
+echo "Output root: $BASE_OUTPUT_DIR"
 echo ""
 
-# ========== 推理生成 ==========
+# ========== Generate ==========
 for INTERVAL in 6; do
     FORECAST_STEPS=$INTERVAL
     OUTPUT_DIR="${BASE_OUTPUT_DIR}/interval_${INTERVAL}"
 
     echo "========================================"
-    echo "HunyuanVideo 推理 (INTERVAL=$INTERVAL)"
+    echo "HunyuanVideo sampling (interval=$INTERVAL)"
     echo "========================================"
     echo ""
-    echo "配置:"
+    echo "Settings:"
     echo "  Checkpoint: $CHECKPOINT"
     echo "  Output directory: $OUTPUT_DIR"
     echo "  Interval: $INTERVAL"
@@ -84,14 +84,14 @@ for INTERVAL in 6; do
         --learned-checkpoint "$CHECKPOINT"
 
     echo ""
-    echo ">>> INTERVAL=$INTERVAL 生成完成! 输出: $OUTPUT_DIR"
+    echo ">>> interval $INTERVAL done. Output: $OUTPUT_DIR"
     echo ""
 done
 
 echo "========================================"
-echo "所有 INTERVAL 推理完成!"
-echo "视频目录: $BASE_OUTPUT_DIR"
+echo "All intervals finished."
+echo "Videos: $BASE_OUTPUT_DIR"
 echo ""
-echo "可使用 VBench 评估:"
+echo "Score them with VBench:"
 echo "  python eval/vbench/calc_vbench.py --video_path $BASE_OUTPUT_DIR/interval_X"
 echo "========================================"

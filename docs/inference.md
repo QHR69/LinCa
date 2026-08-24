@@ -8,9 +8,12 @@ Released files on [QHRQQQ/LinCa](https://huggingface.co/QHRQQQ/LinCa):
 |---|---|
 | `qwen-image_checkpoint.pt` | Qwen-Image (two-stage) |
 | `qwen-image-edit_checkpoint.pt` | Qwen-Image-Edit (two-stage) |
-| `flux/best_predictor_stage0.pt` | FLUX stage 0 |
-| `flux/best_predictor_stage1.pt` | FLUX stage 1 |
-| `flux/best_predictor_stage2.pt` | FLUX stage 2 |
+| `flux/best_predictor_stage{0,1,2}.pt` | FLUX stages 0-2 |
+| `flux/best_predictor_stage{0,1,2}_config.json` | FLUX per-stage architecture |
+
+Download the FLUX `_config.json` files alongside the `.pt` files and keep them in the
+same directory. `from_pretrained` reads the architecture from them, and without them it
+falls back to different defaults, so the state dict will not load.
 
 Use the **script defaults** shipped with this repo when loading the released checkpoints. Those defaults are what the files were trained/exported with.
 
@@ -62,7 +65,10 @@ Optional environment variables used by `run_sample.sh`:
 
 ## HunyuanVideo / Wan2.1
 
-Sampling scripts are in each model directory (`run_sample.sh`, `sample_video.py`, `sample_wan.py`). We do not publish trained predictors for these two models. Train locally, then point the sample script at your checkpoint.
+Each folder has a `run_sample.sh` wrapping its sampler — `sample_video.py` for
+HunyuanVideo, `sample_wan.py` for Wan2.1. We do not publish trained predictors for
+these two, so train one first and point the script at it. Note that Wan2.1 needs
+*both* predictor stages, while HunyuanVideo takes a single checkpoint.
 
 ## Training notes
 

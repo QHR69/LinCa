@@ -1,8 +1,8 @@
 """
 Sample script for qwen_edit inference with two-stage learned invertible decomposition network
 
-全量 1212 张推理，seed = base_seed + original_idx (id_mapping 行索引)
-输出: fullset/task_type/language/key.png
+Renders all 1212 samples with seed = base_seed + original_idx, the id_mapping row index.
+Output layout: fullset/task_type/language/key.png
 
 Usage:
     python sample_learned.py \
@@ -80,7 +80,7 @@ def load_two_stage_predictors(path_s1: str, path_s2: str, device: str = 'cuda'):
 
 
 def _build_dataset_from_gedit_raw(base_path: Path):
-    """从 gedit_bench_numbered 构建 1212 条数据"""
+    """Build the 1212-entry sample list from gedit_bench_numbered."""
     import csv
     with open(base_path / "logs" / "id_mapping.csv", "r", encoding="utf-8") as f:
         rows = [r for r in csv.DictReader(f) if r.get("task_type") != "task_type"]
@@ -276,7 +276,7 @@ def main():
             )
             image = result.images[0]
 
-        # 输出 resize 回原图尺寸
+        # Resize the output back to the source resolution
         orig_w, orig_h = item.get("orig_size", (args.width, args.height))
         if image.size != (orig_w, orig_h):
             image = image.resize((orig_w, orig_h), Image.Resampling.LANCZOS)

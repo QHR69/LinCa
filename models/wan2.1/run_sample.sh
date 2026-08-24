@@ -1,97 +1,106 @@
 #!/bin/bash
-# HunyuanVideo 推理+VBench评估脚本
-# 使用训练好的 learned predictor 进行 cache 加速推理
-# 循环跑多个 INTERVAL，生成视频用于 VBench 评估
+# Stage 3 of the Wan2.1 pipeline: cache-accelerated sampling with a trained LinCa
+# predictor, over the VBench prompt set.
+#
+# Usage:
+#   bash run_sample.sh <wan_ckpt_dir> <predictor_dir> [interval ...]
+#
+# <predictor_dir> is a training output directory holding best_predictor_stage1.pt
+# and best_predictor_stage2.pt. Extra arguments are the cache intervals to sweep;
+# it defaults to a single run at interval 6.
 
-# === 设置环境变量 ===
+set -e
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export PYTHONPATH="${SCRIPT_DIR}/src:${PYTHONPATH}"
-export MODEL_BASE=./checkpoints/hunyuanvideo
 
-# === 检查 checkpoint ===
-CHECKPOINT="${1:-outputs/hunyuan_v4_learned_b_6_h_1024_splits_2304x384x384_intervals_3x4x5x6x7x8x9x10_epochs_100_dropout_0.0_seed_42_20260222_214417/best_predictor.pt}"
+CKPT_DIR="${1:-${WAN_CKPT_DIR:-./checkpoints/Wan2.1-T2V-1.3B}}"
+PREDICTOR_DIR="${2:-}"
+shift 2 2>/dev/null || true
+INTERVALS=("$@")
+if [ ${#INTERVALS[@]} -eq 0 ]; then
+    INTERVALS=(6)
+fi
 
-if [ ! -f "$CHECKPOINT" ]; then
-    echo "错误: checkpoint文件不存在: $CHECKPOINT"
-    echo "Usage: bash run_sample.sh [checkpoint_path]"
-    echo "示例: bash run_sample.sh outputs/hunyuan_v4_learned_.../best_predictor.pt"
+if [ -z "$PREDICTOR_DIR" ]; then
+    echo "Usage: bash run_sample.sh <wan_ckpt_dir> <predictor_dir> [interval ...]"
+    echo "Example: bash run_sample.sh ./checkpoints/Wan2.1-T2V-1.3B outputs/wan_linca_b2_h64_... 6 8"
     exit 1
 fi
 
-# === 从 checkpoint 路径提取实验名称 ===
-EXP_NAME=$(basename $(dirname "$CHECKPOINT"))
-echo "实验名称: $EXP_NAME"
-echo "Checkpoint: $CHECKPOINT"
+STAGE1="${PREDICTOR_DIR}/best_predictor_stage1.pt"
+STAGE2="${PREDICTOR_DIR}/best_predictor_stage2.pt"
+for f in "$STAGE1" "$STAGE2"; do
+    if [ ! -e "$f" ]; then
+        echo "Predictor checkpoint not found: $f"
+        exit 1
+    fi
+done
+if [ ! -d "$CKPT_DIR" ]; then
+    echo "Wan checkpoint directory not found: $CKPT_DIR"
+    exit 1
+fi
 
-# === 模型路径 ===
-MODEL_CKPTS=./checkpoints/hunyuanvideo
-DIT_WEIGHT=${MODEL_CKPTS}/hunyuan-video-t2v-720p/transformers/mp_rank_00_model_states.pt
-VBENCH_JSON=./data/VBench_full_info.json
+TASK="${TASK:-t2v-1.3B}"
+SIZE="${SIZE:-832*480}"
+FRAME_NUM="${FRAME_NUM:-81}"
+SAMPLE_STEPS="${SAMPLE_STEPS:-50}"
+BASE_SEED="${BASE_SEED:-42}"
+VBENCH_JSON="${VBENCH_JSON:-./data/VBench_full_info.json}"
+INDEX_START="${INDEX_START:-0}"
+INDEX_END="${INDEX_END:-946}"
 
-# === 推理参数 ===
-SEED=42
+# Cache settings, matched to training.
+MAX_ORDER="${MAX_ORDER:-2}"
+MIN_ORDER="${MIN_ORDER:-0}"
+FIRST_ENHANCE="${FIRST_ENHANCE:-3}"
+FORECAST_METHOD="${FORECAST_METHOD:-hermite}"
 
-# Cache参数 (与训练一致)
-MAX_ORDER=2
-MIN_ORDER=0
-FIRST_ENHANCE=3
-FORECAST_METHOD="hermite"
-
-# === Output directory ===
-BASE_OUTPUT_DIR="samples/${EXP_NAME}_infer"
+EXP_NAME=$(basename "$PREDICTOR_DIR")
+BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-samples/${EXP_NAME}_infer}"
 mkdir -p "$BASE_OUTPUT_DIR"
 
-echo "总Output directory: $BASE_OUTPUT_DIR"
+echo "========================================"
+echo "Wan2.1 LinCa sampling"
+echo "========================================"
+echo "  Wan checkpoint: $CKPT_DIR"
+echo "  Predictor:      $PREDICTOR_DIR"
+echo "  Task:           $TASK  $SIZE  $FRAME_NUM frames  $SAMPLE_STEPS steps"
+echo "  Intervals:      ${INTERVALS[*]}"
+echo "  Output root:    $BASE_OUTPUT_DIR"
 echo ""
 
-# ========== 推理生成 ==========
-for INTERVAL in 6; do
-    FORECAST_STEPS=$INTERVAL
+for INTERVAL in "${INTERVALS[@]}"; do
     OUTPUT_DIR="${BASE_OUTPUT_DIR}/interval_${INTERVAL}"
+    mkdir -p "$OUTPUT_DIR"
 
-    echo "========================================"
-    echo "HunyuanVideo 推理 (INTERVAL=$INTERVAL)"
-    echo "========================================"
-    echo ""
-    echo "配置:"
-    echo "  Checkpoint: $CHECKPOINT"
-    echo "  Output directory: $OUTPUT_DIR"
-    echo "  Interval: $INTERVAL"
-    echo "  Forecast Steps: $FORECAST_STEPS"
-    echo "  Seed: $SEED"
-    echo ""
-
-    python sample_video.py \
-        --vbench-json-path ${VBENCH_JSON} \
-        --index-start 0 \
-        --index-end 945 \
-        --model-base ${MODEL_CKPTS} \
-        --dit-weight ${DIT_WEIGHT} \
-        --video-size 480 640 \
-        --video-length 65 \
-        --infer-steps 50 \
-        --flow-reverse \
-        --seed $SEED \
-        --save-path "$OUTPUT_DIR" \
-        --use-cpu-offload \
-        --interval $INTERVAL \
-        --max-order $MAX_ORDER \
-        --min-order $MIN_ORDER \
-        --first-enhance $FIRST_ENHANCE \
+    echo "---------- interval $INTERVAL ----------"
+    python sample_wan.py \
+        --task "$TASK" \
+        --ckpt_dir "$CKPT_DIR" \
+        --size "$SIZE" \
+        --frame_num "$FRAME_NUM" \
+        --sample_steps "$SAMPLE_STEPS" \
+        --base_seed "$BASE_SEED" \
+        --vbench-json-path "$VBENCH_JSON" \
+        --index-start "$INDEX_START" \
+        --index-end "$INDEX_END" \
+        --save_folder "$OUTPUT_DIR" \
+        --interval "$INTERVAL" \
+        --forecast-steps "$INTERVAL" \
+        --max-order "$MAX_ORDER" \
+        --min-order "$MIN_ORDER" \
+        --first-enhance "$FIRST_ENHANCE" \
         --forecast-method "$FORECAST_METHOD" \
         --decompose-method learned \
-        --forecast-steps $FORECAST_STEPS \
-        --learned-checkpoint "$CHECKPOINT"
+        --learned-checkpoint-stage1 "$STAGE1" \
+        --learned-checkpoint-stage2 "$STAGE2"
 
-    echo ""
-    echo ">>> INTERVAL=$INTERVAL 生成完成! 输出: $OUTPUT_DIR"
+    echo ">>> interval $INTERVAL done: $OUTPUT_DIR"
     echo ""
 done
 
 echo "========================================"
-echo "所有 INTERVAL 推理完成!"
-echo "视频目录: $BASE_OUTPUT_DIR"
-echo ""
-echo "可使用 VBench 评估:"
-echo "  python eval/vbench/calc_vbench.py --video_path $BASE_OUTPUT_DIR/interval_X"
+echo "All intervals finished. Videos under: $BASE_OUTPUT_DIR"
+echo "Score them with VBench (https://github.com/Vchitect/VBench)."
 echo "========================================"

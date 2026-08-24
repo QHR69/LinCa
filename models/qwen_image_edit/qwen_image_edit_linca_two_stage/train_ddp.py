@@ -1,7 +1,7 @@
 """
-Multi-GPU (DDP) training for qwen_edit LinCA two-stage invertible decomposition network
+Multi-GPU (DDP) training for qwen_edit LinCa two-stage invertible decomposition network
 
-与 train.py 逻辑完全一致，仅增加 DDP 以加速训练。
+Same logic as train.py, with DDP added to speed training up.
 Usage: torchrun --nproc_per_node=N train_ddp.py [args...]
 """
 
@@ -27,10 +27,6 @@ from typing import Dict, List, Optional, Tuple
 from PIL import Image
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
-_LINCA_ROOT = _SCRIPT_DIR.parent.parent.parent
-_PIPELINE_BASE = _LINCA_ROOT / "freqca_qwen"  # pipeline dependency under the LinCA root
-if str(_PIPELINE_BASE) not in sys.path:
-    sys.path.insert(0, str(_PIPELINE_BASE))
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
@@ -44,7 +40,7 @@ from invertible_net import LearnedDecompositionPredictor, FixedPredictionStrateg
 from dataset import MemoryEfficientCacheDataset, collate_fn
 from data_splits import build_splits, save_splits
 
-# 复用 train.py 中的函数
+# Reuse the helpers from train.py
 from train import (
     set_seed,
     setup_training_optimizations,
@@ -60,12 +56,12 @@ from train import (
 
 
 def _get_raw_model(model):
-    """获取 DDP 包装下的原始模型"""
+    """Return the underlying model from a DDP wrapper."""
     return model.module if hasattr(model, 'module') else model
 
 
 class _DDPPredictorWrapper:
-    """包装 DDP 模型，暴露 decompose/compose 供 compute_loss 使用（梯度仍流向 DDP 参数）"""
+    """Wrap a DDP model so compute_loss can reach decompose/compose; gradients still flow to the DDP parameters."""
 
     def __init__(self, ddp_model):
         self._ddp = ddp_model
@@ -98,7 +94,7 @@ def save_checkpoint_ddp(
     loss_s2: float,
     save_path: str,
 ):
-    """保存 checkpoint，支持 DDP"""
+    """Save a checkpoint, unwrapping DDP if needed."""
     raw_s1 = _get_raw_model(predictor_stage1)
     raw_s2 = _get_raw_model(predictor_stage2)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -130,7 +126,7 @@ def load_checkpoint_ddp(
     load_path: str,
     device: torch.device,
 ) -> int:
-    """加载 checkpoint，支持 DDP"""
+    """Load a checkpoint, handling DDP-wrapped models."""
     checkpoint = torch.load(load_path, map_location=device)
     raw_s1 = _get_raw_model(predictor_stage1)
     raw_s2 = _get_raw_model(predictor_stage2)
@@ -148,7 +144,7 @@ def validate_ddp(
     device: torch.device,
     z_loss_weight: float = 0.1,
 ) -> Dict[str, float]:
-    """DDP 验证：各 rank 计算本地 loss 后 all-reduce 得到全局平均"""
+    """Validate under DDP: each rank computes a local loss, then all-reduce averages them."""
     predictor_stage1.eval()
     predictor_stage2.eval()
 
@@ -208,7 +204,7 @@ def validate_ddp(
 
         del target_features, cache_features, cache_mask, step_distances, intervals, target_steps
 
-    # All-reduce 得到全局 sum 和 count
+    # All-reduce to get the global sum and count
     buf = torch.tensor([
         total_s1['loss'], total_s1['recon'], total_s1['z0'], total_s1['z1'], total_s1['z2'],
         total_s2['loss'], total_s2['recon'], total_s2['z0'], total_s2['z1'], total_s2['z2'],
@@ -243,7 +239,7 @@ def create_dataloader_ddp(
     seed: int,
     epoch: int = 0,
 ) -> DataLoader:
-    """创建带 DistributedSampler 的 DataLoader"""
+    """Build a DataLoader backed by a DistributedSampler."""
     dataset = MemoryEfficientCacheDataset(
         data_dir=data_dir,
         intervals=intervals,
@@ -265,7 +261,7 @@ def create_dataloader_ddp(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train qwen_edit two-stage LinCA (DDP multi-GPU)")
+    parser = argparse.ArgumentParser(description="Train qwen_edit two-stage LinCa (DDP multi-GPU)")
 
     parser.add_argument('--cache_data_dir', type=str, default='./cache_data/qwen_edit')
     parser.add_argument('--dataset_path', type=str, default='./data/gedit_bench')
@@ -306,7 +302,7 @@ def main():
 
     args = parser.parse_args()
 
-    # eval 仅 rank0 跑（生成 11 张图约 10–15 分钟），其他 rank 在 barrier 处等待；NCCL 默认 10 分钟会超时，必须设长
+    # Only rank 0 renders the 11 eval images (10-15 min) while the others wait at a barrier, so the NCCL timeout must exceed its 10-minute default
     _pg_timeout = timedelta(minutes=120)
     dist.init_process_group("nccl", timeout=_pg_timeout)
     rank = dist.get_rank()
@@ -322,7 +318,7 @@ def main():
     val_indices, display_indices, train_indices = build_splits(args.cache_data_dir)
 
     if args.exp_name is None:
-        args.exp_name = "qwen_edit_two_stage_v4_ddp"
+        args.exp_name = "qwen_edit_two_stage_ddp"
     output_dir = os.path.join(args.output_dir, args.wandb_project, args.exp_name)
     if rank == 0:
         os.makedirs(output_dir, exist_ok=True)
@@ -331,9 +327,9 @@ def main():
 
     if rank == 0:
         print(f"\n{'='*60}")
-        print(f"两阶段训练 (DDP): Stage1=0-24, Stage2=25-49")
+        print(f"Two-stage training (DDP): stage 1 = steps 0-24, stage 2 = steps 25-49")
         print(f"Early stopping B: stop only after both stages stall for {args.early_stop_patience} epochs")
-        print(f"数据划分: 训练 {len(train_indices)}, 验证 {len(val_indices)}, 展示 {len(display_indices)}")
+        print(f"Data split: {len(train_indices)} train, {len(val_indices)} val, {len(display_indices)} display")
         print(f"{'='*60}\n")
 
     set_seed(args.seed)
@@ -355,7 +351,7 @@ def main():
         num_params = sum(p.numel() for p in _get_raw_model(predictor_stage1).parameters())
         print(f"Model parameters per stage: {num_params:,} ({num_params/1e6:.1f}M)")
 
-    # 学习率按 world_size 线性缩放，保持与单卡等效
+    # Scale the learning rate linearly with world_size to stay equivalent to one GPU
     lr_scaled = args.lr * world_size
     optimizer1 = optim.AdamW(predictor_stage1.parameters(), lr=lr_scaled, weight_decay=args.weight_decay)
     optimizer2 = optim.AdamW(predictor_stage2.parameters(), lr=lr_scaled, weight_decay=args.weight_decay)

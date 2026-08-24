@@ -1,8 +1,8 @@
 #!/bin/bash
-# qwen_edit LinCA 两阶段多卡训练 (DDP)
+# Qwen-Image-Edit: two-stage LinCa predictor training across GPUs (DDP).
 # Usage: ./run_train_ddp.sh [WANDB_KEY]
-# 默认使用所有可见 GPU，可通过 NPROC 指定: NPROC=2 ./run_train_ddp.sh
-# 端口占用时可指定: MASTER_PORT=29501 NPROC=8 ./run_train_ddp.sh <WANDB_KEY>
+# Uses every visible GPU by default; override with NPROC, e.g. NPROC=2 ./run_train_ddp.sh
+# If the port is taken: MASTER_PORT=29501 NPROC=8 ./run_train_ddp.sh <WANDB_KEY>
 
 WANDB_KEY=${1:-""}
 NPROC=${NPROC:-$(nvidia-smi -L | wc -l)}
@@ -10,19 +10,19 @@ NPROC=${NPROC:-$(nvidia-smi -L | wc -l)}
 CACHE_DATA_DIR="./cache_data/qwen_edit"
 DATASET_PATH="./data/gedit_bench"
 if [ ! -d "$CACHE_DATA_DIR" ]; then
-    echo "错误: cache 目录不存在: $CACHE_DATA_DIR"
+    echo "Error: cache directory not found: $CACHE_DATA_DIR"
     exit 1
 fi
 if [ ! -f "$CACHE_DATA_DIR/index.json" ]; then
-    echo "错误: index.json 不存在"
+    echo "Error: index.json not found"
     exit 1
 fi
 
 echo "========================================"
-echo "qwen_edit 两阶段多卡训练 (DDP): $NPROC GPUs"
+echo "Qwen-Image-Edit two-stage training (DDP): $NPROC GPUs"
 echo "Stage1(0-24) + Stage2(25-49)"
 echo "========================================"
-echo "数据: 22 val + 180 train + 11 display"
+echo "Data: 180 train + 22 val + 11 display"
 echo ""
 
 BATCH_SIZE=10
@@ -52,7 +52,7 @@ MODEL_PATH="Qwen/Qwen-Image-Edit"
 
 cd "$(dirname "$0")"
 
-# eval 仅 rank0 跑 11 张图约 10–15 分钟，其他 rank 在 barrier 等待；避免 NCCL 默认 10 分钟超时
+# Rank 0 renders 11 eval images (10-15 min) while the others wait at a barrier, so raise the NCCL timeout above its 10-minute default
 export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=${TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC:-7200}
 
 ARGS="--cache_data_dir $CACHE_DATA_DIR \
@@ -83,7 +83,7 @@ ARGS="--cache_data_dir $CACHE_DATA_DIR \
     --seed $SEED \
     $USE_AMP"
 
-# 优先使用 torchrun，否则用 python -m torch.distributed.run
+# Prefer torchrun, falling back to python -m torch.distributed.run
 if command -v torchrun &>/dev/null; then
     LAUNCHER="torchrun --nproc_per_node=$NPROC"
 else
@@ -97,4 +97,4 @@ else
 fi
 
 echo ""
-echo "训练完成! 模型保存在: $OUTPUT_DIR/$WANDB_PROJECT/$EXP_NAME/"
+echo "Training complete. Checkpoints: $OUTPUT_DIR/$WANDB_PROJECT/$EXP_NAME/"

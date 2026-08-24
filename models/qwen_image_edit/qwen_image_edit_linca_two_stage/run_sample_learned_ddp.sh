@@ -1,5 +1,5 @@
 #!/bin/bash
-# 多卡推理 1212 张
+# Render all 1212 samples across several GPUs.
 # Usage: bash run_sample_learned_ddp.sh <checkpoint_dir> [nproc]
 CHECKPOINT_DIR=${1:-"outputs/qwen_edit_linca_two_stage/qwen_edit_linca_two_stage/qwen_edit_two_stage_b3_h256"}
 NPROC=${2:-4}

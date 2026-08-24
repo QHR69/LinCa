@@ -661,7 +661,7 @@ class QwenImageTransformer2DModel(
             output = self.proj_out(hidden_states)
 
             if not use_learned_cache:
-                # For original LinCA: cache 64-dim features (after proj_out)
+                # Baseline path (no learned predictor): cache the 64-dim proj_out result
                 module_cache_init(cache_dic=cache_dic, current=current)
                 derivative_approximation(cache_dic=cache_dic, current=current, feature=output)
 
@@ -679,7 +679,7 @@ class QwenImageTransformer2DModel(
                 # Apply proj_out to get final 64-dim output
                 output = self.proj_out(hidden_states_pred)
             else:
-                # For original LinCA: directly predict 64-dim output
+                # Baseline path (no learned predictor): forecast the 64-dim output directly
                 if not cache_dic['use_z_cache'] or not current["merge"]:
                     output = cache_step(cache_dic=cache_dic, current=current)
                 else:

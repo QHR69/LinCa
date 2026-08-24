@@ -1,70 +1,69 @@
 #!/bin/bash
-# HunyuanVideo 可逆网络训练脚本
-# 方案四: 混合架构 (Glow + RevNet) 去门控版本
+# Train the LinCa predictor for HunyuanVideo.
+#
+# Reads the cache features produced by generate_features.sh and fits a single
+# invertible-decomposition predictor covering all 50 sampling steps.
 
-# 检查数据目录（使用已收集的VBench特征数据）
-DATA_DIR="./cache_data/hunyuan"
+set -e
+
+DATA_DIR=${DATA_DIR:-"./cache_data/hunyuan"}
 if [ ! -d "$DATA_DIR" ]; then
-    echo "错误: 数据目录不存在: $DATA_DIR"
+    echo "Error: feature directory not found: $DATA_DIR"
+    echo "Run generate_features.sh first, or point DATA_DIR at an existing one."
     exit 1
 fi
 
-# 设置 PYTHONPATH (使用绝对路径)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export PYTHONPATH="${SCRIPT_DIR}/src:${PYTHONPATH}"
 
-echo "========================================"
-echo "HunyuanVideo 可逆网络训练"
-echo "========================================"
-echo ""
-echo "改进特性:"
-echo "  - 去门控: 移除可学习门控,简化模型"
-echo "  - 可配置分区: split_dims=2304,384,384"
-echo "  - 修复归一化: norm_factor 去掉平方"
-echo "  - interval随机: [3,4,5,6,7,8,9,10,11,12]均匀采样"
-echo "  - VBench 946 prompts"
-echo "  - Dropout防过拟合"
-echo "  - TensorBoard + Wandb 日志记录"
-echo ""
-
-# === 训练参数 ===
+# === Optimisation ===
 BATCH_SIZE=1
 EPOCHS=100
 LR=2e-5
 WEIGHT_DECAY=1e-5
-INTERVALS=${INTERVALS:-"3,4,5,6,7,8,9,10"}
-USE_AMP="--amp"
 GRAD_ACCUM=64
+USE_AMP="--amp"
 SEED=42
 
-# === 模型参数 (支持环境变量覆盖，用于调参) ===
+# === Predictor architecture (override via environment for sweeps) ===
 NUM_BLOCKS=${NUM_BLOCKS:-2}
 HIDDEN_DIM=${HIDDEN_DIM:-64}
-SPLIT_DIMS=${SPLIT_DIMS:-"2304,384,384"}
+SPLIT_DIMS=${SPLIT_DIMS:-"2304,384,384"}   # z0,z1,z2; must sum to --dim
 DROPOUT=${DROPOUT:-0.0}
-
-# === Loss 权重参数 ===
 Z_LOSS_WEIGHT=0.1
 
-# === 训练策略 ===
-PROMPTS_PER_EPOCH=20   # 每epoch随机抽30个prompt训练（从训练池中抽，不含验证集）
+# Cache intervals to train against. --random_interval draws one per sample so a
+# single predictor generalises across all of them.
+INTERVALS=${INTERVALS:-"3,4,5,6,7,8,9,10"}
+
+# === Data split (VBench, 946 prompts) ===
+TRAIN_PROMPTS="0-946"
+NUM_VAL_PROMPTS=20       # taken at regular spacing; the rest are training prompts
+PROMPTS_PER_EPOCH=20     # prompts sampled per epoch from the training pool
+
 EARLY_STOP_PATIENCE=20
-EVAL_INTERVAL=1
 SAVE_INTERVAL=1
+# Mid-training sample previews are not supported for this backbone; keep at 0.
+EVAL_INTERVAL=${EVAL_INTERVAL:-0}
 
-# === 数据划分策略 ===
-TRAIN_PROMPTS="0-946"    # VBench 946 prompts
-NUM_VAL_PROMPTS=20       # 等间隔抽取50个做验证，剩余896个训练
-
-# === Output directory ===
-OUTPUT_DIR="outputs"
-EXP_NAME="hunyuan_v4_learned_b_${NUM_BLOCKS}_h_${HIDDEN_DIM}_splits_${SPLIT_DIMS//,/x}_intervals_${INTERVALS//,/x}_epochs_${EPOCHS}_dropout_${DROPOUT}_seed_${SEED}"
-
-# === Wandb ===
-WANDB_PROJECT="hunyuan-v4"
+# === Output ===
+OUTPUT_DIR=${OUTPUT_DIR:-"outputs"}
+EXP_NAME="hunyuan_linca_b_${NUM_BLOCKS}_h_${HIDDEN_DIM}_splits_${SPLIT_DIMS//,/x}_intervals_${INTERVALS//,/x}_epochs_${EPOCHS}_dropout_${DROPOUT}_seed_${SEED}"
+WANDB_PROJECT="linca-hunyuanvideo"
+# Uncomment to train without wandb:
 # NO_WANDB="--no_wandb"
 
-echo ">>> 开始训练 (使用TensorBoard + Wandb记录)"
+echo "========================================"
+echo "LinCa predictor training -- HunyuanVideo"
+echo "========================================"
+echo "  features:   $DATA_DIR"
+echo "  blocks:     $NUM_BLOCKS"
+echo "  hidden dim: $HIDDEN_DIM"
+echo "  splits:     $SPLIT_DIMS"
+echo "  intervals:  $INTERVALS (randomised per sample)"
+echo "  output:     $OUTPUT_DIR/$EXP_NAME"
+echo ""
+
 python src/flux/train_encoder_decoder.py \
     --data_dir $DATA_DIR \
     --train_prompts $TRAIN_PROMPTS \
@@ -97,7 +96,7 @@ python src/flux/train_encoder_decoder.py \
 
 echo ""
 echo "========================================"
-echo "训练完成!"
-echo "查看TensorBoard: tensorboard --logdir=$OUTPUT_DIR"
-echo "查看Wandb: https://wandb.ai"
+echo "Training complete."
+echo "Best predictor: $OUTPUT_DIR/$EXP_NAME/best_predictor.pt"
+echo "TensorBoard:    tensorboard --logdir=$OUTPUT_DIR"
 echo "========================================"

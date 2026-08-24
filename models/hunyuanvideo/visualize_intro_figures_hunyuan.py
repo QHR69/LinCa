@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Introduction-figure script — HunyuanVideo (hunyuan_v4)
+Introduction-figure script — HunyuanVideo (hunyuan)
 
 - Panel 1: dynamics across denoising — 1-1 trajectory, 1-2 multi-stage, 1-3 step deltas
 - Panel 3: 3 raw vs 3 decomposed plots

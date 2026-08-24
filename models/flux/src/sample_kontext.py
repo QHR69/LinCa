@@ -213,4 +213,4 @@ if __name__ == '__main__':
     )
     
     main(opts)
-    # CUDA_VISIBLE_DEVICES=2 python src/sample_kontext.py --output_dir results/freqca_N7_Z --english_only --interval 7 --use_z_cache --forecast_steps 7
+    # CUDA_VISIBLE_DEVICES=2 python src/sample_kontext.py --output_dir results/linca_N7_Z --english_only --interval 7 --use_z_cache --forecast_steps 7

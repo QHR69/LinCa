@@ -1,41 +1,37 @@
-# LinCA 数据生成（cache data）
+# Qwen-Image cache-feature extraction
 
-This directory contains scripts for generating training data for the learned invertible decomposition network.
+Runs full 50-step Qwen-Image inference over a prompt set and stores the intermediate
+DiT features that the LinCa predictor is trained to forecast.
 
-## Directory Structure
+## Layout
 
 ```
 linca_data/
-├── generate_cache_data.py       # Single-GPU data generation
-├── generate_cache_data_ddp.py   # Multi-GPU (DDP) data generation
+├── generate_cache_data.py       # single GPU
+├── generate_cache_data_ddp.py   # multi-GPU (DDP)
 ├── pipeline/
-│   ├── pipeline_qwenimage_data.py      # Pipeline for data generation
-│   └── transformer_qwenimage_data.py   # Transformer with feature extraction
+│   ├── pipeline_qwenimage_data.py      # pipeline that emits features
+│   └── transformer_qwenimage_data.py   # transformer with the extraction hook
 ├── prompts/
 │   └── prompts_train.txt        # 400 training prompts
-└── data/                        # Generated data (after running scripts)
-    ├── cache_data/              # Cached features
+└── data/                        # created by the scripts
+    ├── cache_data/
     │   ├── prompt_0000/
-    │   │   ├── cond/            # noise_pred branch features
+    │   │   ├── cond/            # noise_pred branch, one file per step
     │   │   │   ├── step_00.pt   # [seq_len, 3072]
     │   │   │   └── ...
-    │   │   ├── uncond/          # neg_noise_pred branch features
-    │   │   │   ├── step_00.pt
-    │   │   │   └── ...
+    │   │   ├── uncond/          # neg_noise_pred branch
     │   │   └── metadata.json
-    │   └── ...
-    ├── images_first200/         # Images for prompts 0-199 (for PSNR/SSIM)
-    └── images_last200/          # Images for prompts 200-399
+    │   └── index.json
+    ├── images_first200/         # images for prompts 0-199, the PSNR/SSIM reference
+    └── images_last200/          # images for prompts 200-399
 ```
 
 ## Usage
 
-### Single-GPU Generation
-
 ```bash
-cd /root/autodl-tmp/linca_data
+cd models/qwen_image/linca_data
 
-# Full generation
 python generate_cache_data.py \
     --prompt_file prompts/prompts_train.txt \
     --output_dir data/cache_data \
@@ -44,50 +40,37 @@ python generate_cache_data.py \
     --true_cfg_scale 4.0
 ```
 
-### Multi-GPU (DDP) Generation
+Across 4 GPUs:
 
 ```bash
-cd /root/autodl-tmp/linca_data
-
-# 4 GPUs
-torchrun --nproc_per_node=4 generate_cache_data_ddp.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 generate_cache_data_ddp.py \
     --prompt_file prompts/prompts_train.txt \
     --output_dir data/cache_data \
     --seed 0
-
-# Or specify GPUs
-CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 generate_cache_data_ddp.py \
-    --prompt_file prompts/prompts_train.txt
 ```
 
-## Important: Seed Consistency
+## Seeding
 
-The seed logic ensures identical results between single-GPU and multi-GPU:
+Each prompt is seeded independently, so single-GPU and multi-GPU runs produce
+identical output regardless of how prompts are sharded:
 
 ```python
 seed = base_seed + global_prompt_idx
 ```
 
-- `base_seed`: Command line argument `--seed` (default: 0)
-- `global_prompt_idx`: Index of prompt in the file (0-399)
+`base_seed` comes from `--seed` (default 0) and `global_prompt_idx` is the prompt's
+line number in the file, so prompt 0 uses seed 0, prompt 199 uses seed 199, and so on.
 
-This means:
-- Prompt 0 uses seed 0
-- Prompt 1 uses seed 1
-- Prompt 199 uses seed 199
-- etc.
+This is the same rule `sample.py` follows, which is what makes the generated images
+usable as the PSNR/SSIM reference for accelerated sampling.
 
-**This matches the seed logic in sample.py**, so generated images can be used for PSNR/SSIM comparison.
+## Output format
 
-## Output Data Format
+Each `.pt` file holds one tensor of shape `[seq_len, 3072]`, taken after `norm_out`
+and before `proj_out`. `seq_len` follows the image size — about 27889 at 1328×1328 —
+and 3072 is the transformer's hidden dimension.
 
-### Feature Files (`.pt`)
-
-Each feature file contains a tensor of shape `[seq_len, 3072]`:
-- `seq_len`: Sequence length (depends on image size, for 1328x1328 it's ~27889)
-- `3072`: Feature dimension (after norm_out, before proj_out in transformer)
-
-### Metadata JSON
+`metadata.json`, per prompt:
 
 ```json
 {
@@ -104,26 +87,17 @@ Each feature file contains a tensor of shape `[seq_len, 3072]`:
 }
 ```
 
-### Index JSON
+`data/cache_data/index.json` records the generation config and every prompt's
+metadata, and is what the training dataloader reads.
 
-`data/cache_data/index.json` contains:
-- Configuration used for generation
-- List of all prompts with their metadata
-- Useful for loading data during training
+`images_first200/` covers prompts 0-199, matching `test2_drawbench.txt`, and serves as
+the ground truth for PSNR/SSIM. `images_last200/` covers prompts 200-399.
 
-## Image Organization
+## Cost
 
-- **images_first200/**: Prompts 0-199 (matches `test2_drawbench.txt`)
-  - Used as ground truth for PSNR/SSIM evaluation
-- **images_last200/**: Prompts 200-399
-  - Additional training data images
+Roughly 3-4 hours on one A100 80GB for 400 prompts, or about an hour on four.
 
-## Estimated Time
-
-- Single A100 80GB: ~3-4 hours for 400 prompts
-- 4x A100 80GB: ~1 hour for 400 prompts
-
-## Disk Space
-
-- Features: ~400 prompts × 50 steps × 2 branches × ~200MB = ~8TB (compressed)
-- Images: ~400 × 2MB = ~800MB
+Plan for the disk: a single `[27889, 3072]` bf16 feature file is around 170 MB, and a
+full run writes 400 prompts × 50 steps × 2 branches, so the total reaches several
+terabytes. Generate a subset first (200 prompts is enough to train a usable predictor)
+and check the footprint before committing to the full set. Images add about 800 MB.

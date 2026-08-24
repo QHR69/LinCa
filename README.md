@@ -78,6 +78,119 @@ Separate predictors are trained per model and per timestep segment, so one frame
 </p>
 <p align="center"><em>Fig. 3. Overview of LinCa: feature caching, the decompose–predict–reconstruct pipeline, and the invertible block.</em></p>
 
+## Supported models
+
+| Model | Code | Released weights | Notes |
+|---|---|---|---|
+| FLUX.1-dev | [`models/flux`](models/flux) | 3-stage predictors | Inference with released weights |
+| Qwen-Image | [`models/qwen_image`](models/qwen_image) | two-stage checkpoint | Defaults match the released file |
+| Qwen-Image-Edit | [`models/qwen_image_edit`](models/qwen_image_edit) | two-stage checkpoint | Defaults match the released file |
+| HunyuanVideo | [`models/hunyuanvideo`](models/hunyuanvideo) | — | Train your own predictor |
+| Wan2.1 | [`models/wan2.1`](models/wan2.1) | — | Train your own predictor |
+
+Predictor weights: [QHRQQQ/LinCa](https://huggingface.co/QHRQQQ/LinCa). Backbone weights are **not** included — get them from the official FLUX / Qwen / HunyuanVideo / Wan sources.
+
+## Installation
+
+Each backbone pins its own dependency set, because the upstream stacks disagree on
+`diffusers` and `transformers` versions. Install the one you need rather than trying to
+share an environment across all five:
+
+```bash
+git clone https://github.com/QHR69/LinCa.git
+cd LinCa
+
+pip install -r models/qwen_image/requirements.txt        # or
+pip install -r models/qwen_image_edit/requirements.txt   # or
+pip install -r models/flux/requirements.txt              # or
+pip install -r models/hunyuanvideo/requirements.txt      # or
+pip install -r models/wan2.1/requirements.txt
+```
+
+Install a CUDA build of PyTorch first if `pip` would otherwise resolve to a CPU wheel.
+Nothing here needs `pip install -e .` — the scripts set `PYTHONPATH` themselves.
+Qwen-Image additionally needs `transformers>=4.49` for Qwen2.5-VL.
+
+You also need the backbone weights from their official sources. A LinCa checkpoint is
+the cache predictor only, not the diffusion model.
+
+## Quick start
+
+Download a predictor, point it at a backbone, sample. Full flag reference:
+[`docs/inference.md`](docs/inference.md).
+
+### Qwen-Image
+
+```bash
+huggingface-cli download QHRQQQ/LinCa qwen-image_checkpoint.pt --local-dir ./checkpoints
+
+cd models/qwen_image/qwen_image_linca_two_stage
+python sample_learned.py \
+  --checkpoint ../../../checkpoints/qwen-image_checkpoint.pt \
+  --prompt_file prompts/DrawBench200.txt \
+  --output_dir samples/qwen_image
+```
+
+The backbone is pulled from `Qwen/Qwen-Image` on first use. These defaults are the
+**4.90×** operating point from the table above.
+
+### Qwen-Image-Edit
+
+```bash
+huggingface-cli download QHRQQQ/LinCa qwen-image-edit_checkpoint.pt --local-dir ./checkpoints
+
+cd models/qwen_image_edit/qwen_image_edit_linca_two_stage
+python sample_edit_single.py \
+  --checkpoint ../../../checkpoints/qwen-image-edit_checkpoint.pt \
+  --image path/to/input.png \
+  --prompt "your edit instruction"
+```
+
+Batch editing across GEdit-Bench is in `sample_learned_ddp.py`.
+
+### FLUX.1-dev
+
+```bash
+huggingface-cli download QHRQQQ/LinCa --include 'flux/*' --local-dir ./checkpoints
+
+export FLUX_CHECKPOINT_DIR=/path/to/FLUX.1-dev
+cd models/flux
+bash run_sample.sh ../../checkpoints/flux 17,17,16
+```
+
+The `--include 'flux/*'` matters: every stage ships a `best_predictor_stageN_config.json`
+beside its `.pt`, and the loader needs both — given only the weights it falls back to a
+different architecture and the load fails. `run_sample.sh` locates the official
+FLUX.1-dev files (`flux1-dev.safetensors`, `ae.safetensors`) through
+`FLUX_CHECKPOINT_DIR`, or `FLUX_MODEL` / `FLUX_AE` individually. Stage splits `17,17,16`
+cover a 50-step schedule.
+
+### HunyuanVideo / Wan2.1
+
+No predictors are published for these two. Train one with the recipe below, then run the
+`run_sample.sh` in the model folder.
+
+> Released inference scripts keep the **defaults that match the published checkpoints**.
+> Do not change them to copy a setting from the paper sweeps.
+
+## Training your own predictor
+
+Training is cheap: 100–200 cached features, about **an hour on a single 12 GB GPU**, and
+the backbone is never loaded.
+
+1. **Extract cache features** — run the backbone at full step count over a small prompt
+   set, saving the intermediate DiT feature at every step.
+2. **Train** one invertible predictor per timestep segment on those features.
+3. **Sample** with the resulting checkpoint.
+
+Step 1 is the demanding step, in disk rather than compute; each model README gives the
+footprint and how to cap the prompt count. Exact commands per model:
+[Qwen-Image](models/qwen_image), [Qwen-Image-Edit](models/qwen_image_edit),
+[HunyuanVideo](models/hunyuanvideo), [Wan2.1](models/wan2.1).
+
+FLUX training code is not part of this release; that tree is inference-only against the
+published predictors.
+
 ## Results
 
 ### Text-to-image: FLUX.1-dev
@@ -285,78 +398,6 @@ At the same **5.51×**, Hermite is best, ahead of Lagrange / Taylor / Chebyshev 
   <img src="assets/tab6_predictor.png" width="72%" alt="High-order predictor comparison">
 </p>
 
-Released inference scripts keep the **code defaults that match the published checkpoints**. Do not change those defaults just to copy the paper sweep.
-
-## Supported models
-
-| Model | Code | Released weights | Notes |
-|---|---|---|---|
-| FLUX.1-dev | [`models/flux`](models/flux) | 3-stage predictors | Inference with released weights |
-| Qwen-Image | [`models/qwen_image`](models/qwen_image) | two-stage checkpoint | Defaults match the released file |
-| Qwen-Image-Edit | [`models/qwen_image_edit`](models/qwen_image_edit) | two-stage checkpoint | Defaults match the released file |
-| HunyuanVideo | [`models/hunyuanvideo`](models/hunyuanvideo) | — | Train your own predictor |
-| Wan2.1 | [`models/wan2.1`](models/wan2.1) | — | Train your own predictor |
-
-Predictor weights: [QHRQQQ/LinCa](https://huggingface.co/QHRQQQ/LinCa). Backbone weights are **not** included — get them from the official FLUX / Qwen / HunyuanVideo / Wan sources.
-
-## Quick start
-
-Install the official stack for the backbone, then load the LinCa predictor. More flags: [`docs/inference.md`](docs/inference.md).
-
-### Qwen-Image
-
-```bash
-huggingface-cli download QHRQQQ/LinCa qwen-image_checkpoint.pt --local-dir ./checkpoints
-
-cd models/qwen_image/qwen_image_linca_two_stage
-python sample_learned.py \
-  --checkpoint ../../../checkpoints/qwen-image_checkpoint.pt \
-  --prompt_file prompts/DrawBench200.txt \
-  --output_dir samples/qwen_image
-```
-
-### Qwen-Image-Edit
-
-```bash
-huggingface-cli download QHRQQQ/LinCa qwen-image-edit_checkpoint.pt --local-dir ./checkpoints
-
-cd models/qwen_image_edit/qwen_image_edit_linca_two_stage
-python sample_edit_single.py \
-  --checkpoint ../../../checkpoints/qwen-image-edit_checkpoint.pt \
-  --image path/to/input.png \
-  --prompt "your edit instruction"
-```
-
-### FLUX.1-dev
-
-```bash
-huggingface-cli download QHRQQQ/LinCa \
-  flux/best_predictor_stage0.pt \
-  flux/best_predictor_stage1.pt \
-  flux/best_predictor_stage2.pt \
-  --local-dir ./checkpoints
-
-export FLUX_CHECKPOINT_DIR=/path/to/FLUX.1-dev
-cd models/flux
-bash run_sample.sh ../../checkpoints/flux 17,17,16
-```
-
-`run_sample.sh` expects official FLUX.1-dev files (`flux1-dev.safetensors` + `ae.safetensors`) via `FLUX_CHECKPOINT_DIR` / `FLUX_MODEL` / `FLUX_AE`. Stage splits `17,17,16` match a 50-step schedule.
-
-### HunyuanVideo / Wan2.1
-
-Sampling and training scripts are in each folder. We do not publish trained predictors for these two models.
-
-## Training
-
-Qwen-Image, Qwen-Image-Edit, HunyuanVideo, and Wan2.1 include cache-feature generation and training scripts. Recipe from the paper:
-
-1. Generate intermediate features on a small prompt set (about 100–200 images).
-2. Train one invertible predictor per timestep segment.
-3. Plug the checkpoint into the sample script.
-
-FLUX training code is not part of this release. See each model README for exact commands.
-
 ## Repository layout
 
 ```
@@ -369,6 +410,25 @@ LinCa/
 ├── docs/                       # extra notes
 └── assets/                     # figures and tables from the paper PDF
 ```
+
+## Acknowledgements
+
+LinCa builds on the feature-caching line of work, and this repository builds on the
+open-source releases that made the experiments possible:
+
+- **FreqCa** ([arXiv:2510.08669](https://arxiv.org/abs/2510.08669)) — the
+  frequency-decomposition cache that LinCa generalises, replacing its fixed FFT/DCT split
+  with a learned invertible one. The cache bookkeeping in `cache_functions/` keeps FreqCa's
+  interface, and `cache_utils.py` stays in every tree as the baseline path.
+- **[TaylorSeer](https://github.com/Shenyi-Z/TaylorSeer)** (ICCV 2025) —
+  Taylor-expansion feature forecasting, our closest baseline and the origin of the
+  video-model cache scaffolding in the HunyuanVideo and Wan2.1 trees.
+- Backbones: **[FLUX](https://github.com/black-forest-labs/flux)** (Black Forest Labs),
+  **[Qwen-Image](https://github.com/QwenLM/Qwen-Image)** and Qwen-Image-Edit (Alibaba),
+  **[HunyuanVideo](https://github.com/Tencent-Hunyuan/HunyuanVideo)** (Tencent),
+  **[Wan2.1](https://github.com/Wan-Video/Wan2.1)** (Alibaba).
+- Evaluation: **[VBench](https://github.com/Vchitect/VBench)**,
+  **[ImageReward](https://github.com/THUDM/ImageReward)**, GEdit-Bench.
 
 ## Citation
 

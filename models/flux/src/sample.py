@@ -50,7 +50,7 @@ def main(opts: SamplingOptions):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # Load learned predictor if using learned decomposition (多阶段)
+    # Load the learned predictors when the learned decomposition is selected
     if opts.decompose_method == 'learned' and opts.learned_checkpoints and opts.stage_splits:
         from flux.modules.cache_functions.cache_utils_learned import load_predictor
         print(f"Loading multi-stage learned predictors (stage_splits={opts.stage_splits}):")

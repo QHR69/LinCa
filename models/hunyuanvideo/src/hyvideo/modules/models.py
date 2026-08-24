@@ -17,7 +17,7 @@ from .mlp_layers import MLP, MLPEmbedder, FinalLayer
 from .modulate_layers import ModulateDiT, modulate, apply_gate
 from .token_refiner import SingleTokenRefiner
 
-# flux_v4 cache imports (model-level caching)
+# LinCa cache imports (model-level caching)
 from flux.modules.cache_functions.cache_utils_learned import (
     module_cache_init,
     derivative_approximation,
@@ -666,7 +666,7 @@ class HYVideoDiffusionTransformer(ModelMixin, ConfigMixin):
         cache_dic = kwargs.get("cache_dic", None)
         current = kwargs.get("current", None)
 
-        # --------------------- flux_v4 model-level caching ------------------------
+        # --------------------- LinCa model-level caching ------------------------
         # current['type'] is set by pipeline (cal_type)
         # current['module'] = 'denoise' — single branch, same as Flux
 

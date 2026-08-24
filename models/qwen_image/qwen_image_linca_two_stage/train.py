@@ -395,7 +395,7 @@ def validate(
     device: torch.device,
     z_loss_weight: float = 0.1,
 ) -> Dict[str, float]:
-    """两阶段验证"""
+    """Validate both predictor stages."""
     predictor_stage1.eval()
     predictor_stage2.eval()
     
@@ -470,7 +470,7 @@ def validate(
 
 
 def _thorough_cleanup_pipeline(pipe):
-    """彻底清理 pipeline"""
+    """Release a pipeline and its memory."""
     if pipe is None:
         return
     try:
@@ -505,7 +505,7 @@ def eval_generate_images(
     epoch: int = 0,
     base_seed: int = 0,
 ) -> List[Image.Image]:
-    """在 eval prompts 上生成图片（两阶段版本）"""
+    """Render preview images for the eval prompts using both stages."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     if current_dir not in sys.path:
         sys.path.insert(0, current_dir)
@@ -597,7 +597,7 @@ def save_checkpoint(
     loss_s2: float,
     save_path: str,
 ):
-    """保存两阶段检查点"""
+    """Save a checkpoint holding both predictor stages."""
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     torch.save({
         'epoch': epoch,
@@ -626,7 +626,7 @@ def load_checkpoint(
     load_path: str,
     device: torch.device,
 ) -> int:
-    """加载两阶段检查点"""
+    """Load a checkpoint holding both predictor stages."""
     checkpoint = torch.load(load_path, map_location=device)
     predictor_stage1.load_state_dict(checkpoint['predictor_stage1'])
     predictor_stage2.load_state_dict(checkpoint['predictor_stage2'])
@@ -636,9 +636,9 @@ def load_checkpoint(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train two-stage invertible decomposition network (v4)")
+    parser = argparse.ArgumentParser(description="Train two-stage invertible decomposition network")
     
-    parser.add_argument('--data_dir', type=str, default='/root/autodl-tmp/linca_data/data/cache_data')
+    parser.add_argument('--data_dir', type=str, default='./cache_data')
     parser.add_argument('--train_prompts', type=str, default='0-400')
     parser.add_argument('--val_sample_range', type=str, default='200-400')
     parser.add_argument('--num_val_prompts', type=int, default=20)
@@ -671,7 +671,7 @@ def main():
     parser.add_argument('--exp_name', type=str, default=None)
     parser.add_argument('--log_interval', type=int, default=1)
     parser.add_argument('--save_interval', type=int, default=5)
-    parser.add_argument('--wandb_project', type=str, default='linca_v4_two_stage')
+    parser.add_argument('--wandb_project', type=str, default='linca_two_stage')
     parser.add_argument('--wandb_key', type=str, default=None)
     parser.add_argument('--no_wandb', action='store_true')
     
@@ -702,7 +702,7 @@ def main():
     print(f"\n{'='*60}")
     print(f"Two-stage training: Stage1=0-24, Stage2=25-49")
     print(f"Early stopping B: stop only after both stages stall for {args.early_stop_patience} epochs")
-    print(f"数据划分: 训练 {len(train_pool)}, 验证 {len(val_indices)}")
+    print(f"Data split: {len(train_pool)} train, {len(val_indices)} val")
     print(f"{'='*60}\n")
     
     set_seed(args.seed)
@@ -746,7 +746,7 @@ def main():
     )
     
     if args.exp_name is None:
-        args.exp_name = "two_stage_v4"
+        args.exp_name = "two_stage"
     output_dir = os.path.join(args.output_dir, args.wandb_project, args.exp_name)
     os.makedirs(output_dir, exist_ok=True)
     

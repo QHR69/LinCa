@@ -1,24 +1,24 @@
 #!/bin/bash
-# qwen_edit LinCA 两阶段训练
-# 与 qwen_image 框架一致: loss, interval, cond/uncond, Early Stopping B
+# Qwen-Image-Edit: two-stage LinCa predictor training.
+# Matches the qwen_image recipe: loss, intervals, cond/uncond streams, dual-stage early stopping.
 
 WANDB_KEY=${1:-""}
 
 CACHE_DATA_DIR="./cache_data/qwen_edit"
 DATASET_PATH="./data/gedit_bench"
 if [ ! -d "$CACHE_DATA_DIR" ]; then
-    echo "错误: cache 目录不存在: $CACHE_DATA_DIR"
+    echo "Error: cache directory not found: $CACHE_DATA_DIR"
     exit 1
 fi
 if [ ! -f "$CACHE_DATA_DIR/index.json" ]; then
-    echo "错误: index.json 不存在"
+    echo "Error: index.json not found"
     exit 1
 fi
 
 echo "========================================"
-echo "qwen_edit 两阶段训练: Stage1(0-24) + Stage2(25-49)"
+echo "Qwen-Image-Edit two-stage training: stage 1 = steps 0-24, stage 2 = steps 25-49"
 echo "========================================"
-echo "数据: 22 val + 180 train + 11 display"
+echo "Data: 180 train + 22 val + 11 display"
 echo ""
 
 BATCH_SIZE=10
@@ -110,4 +110,4 @@ else
 fi
 
 echo ""
-echo "训练完成! 模型保存在: $OUTPUT_DIR/$WANDB_PROJECT/$EXP_NAME/"
+echo "Training complete. Checkpoints: $OUTPUT_DIR/$WANDB_PROJECT/$EXP_NAME/"

@@ -949,7 +949,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
         self._num_timesteps = len(timesteps)
 
-        # Initialize flux_v4 style cache
+        # Initialize LinCa style cache
         cache_kwargs = {
             'num_steps': self._num_timesteps,
             'test_FLOPs': getattr(self.args, 'test_FLOPs', False),

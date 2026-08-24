@@ -1,56 +1,66 @@
 #!/bin/bash
-# Generate cached features
+# Stage 1 of the Wan2.1 pipeline: dump per-step cumulative residual features from
+# a full 50-step run, which the LinCa predictor is then trained on.
+#
+# Usage:
+#   bash generate_features.sh <wan_ckpt_dir> [start_idx] [end_idx]
+#
+# Override any of the environment variables below to change the capture setting.
 
-# 检查prompt文件
-PROMPT_FILE="prompts/DrawBench200.txt"
-if [ ! -f "$PROMPT_FILE" ]; then
-    echo "错误: prompt文件不存在: $PROMPT_FILE"
-    echo "请确认prompts/DrawBench200.txt文件存在"
+set -e
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+export PYTHONPATH="${SCRIPT_DIR}/src:${PYTHONPATH}"
+
+CKPT_DIR="${1:-${WAN_CKPT_DIR:-./checkpoints/Wan2.1-T2V-1.3B}}"
+START_IDX="${2:-0}"
+END_IDX="${3:-946}"
+
+OUTPUT_DIR="${OUTPUT_DIR:-./cache_data/wan}"
+VBENCH_JSON="${VBENCH_JSON:-./data/VBench_full_info.json}"
+TASK="${TASK:-t2v-1.3B}"
+SIZE="${SIZE:-832*480}"
+FRAME_NUM="${FRAME_NUM:-81}"
+SAMPLE_STEPS="${SAMPLE_STEPS:-50}"
+BASE_SEED="${BASE_SEED:-42}"
+
+if [ ! -d "$CKPT_DIR" ]; then
+    echo "Wan checkpoint directory not found: $CKPT_DIR"
+    echo "Usage: bash generate_features.sh <wan_ckpt_dir> [start_idx] [end_idx]"
+    echo "Download with:"
+    echo "  huggingface-cli download Wan-AI/Wan2.1-T2V-1.3B --local-dir $CKPT_DIR"
     exit 1
 fi
 
-# Output directory
-OUTPUT_DIR="cache_data"
-
-# 模型参数
-MODEL_NAME="flux-dev"
-NUM_STEPS=50
-WIDTH=1024
-HEIGHT=1024
-SEED=0
-
-# prompt范围（可分批生成）
-START_IDX=${1:-0}      # 默认从0开始
-END_IDX=${2:-200}      # 默认生成200个（DrawBench200）
+if [ ! -f "$VBENCH_JSON" ]; then
+    echo "VBench prompt file not found: $VBENCH_JSON"
+    echo "Set VBENCH_JSON to VBench_full_info.json, or pass --prompt_file to the"
+    echo "Python script directly to use a plain text prompt list instead."
+    exit 1
+fi
 
 echo "========================================"
-echo "Generate Flux cached features"
+echo "Wan2.1 cache feature generation"
 echo "========================================"
-echo ""
-echo "配置:"
-echo "  Prompt文件: $PROMPT_FILE"
-echo "  Output directory: $OUTPUT_DIR"
-echo "  模型: $MODEL_NAME"
-echo "  步数: $NUM_STEPS"
-echo "  Prompt范围: $START_IDX - $END_IDX"
+echo "  Checkpoint:   $CKPT_DIR"
+echo "  Task:         $TASK"
+echo "  Resolution:   $SIZE, $FRAME_NUM frames, $SAMPLE_STEPS steps"
+echo "  Prompts:      $VBENCH_JSON [$START_IDX, $END_IDX)"
+echo "  Output:       $OUTPUT_DIR"
 echo ""
 
-python src/flux/generate_cache_features.py \
-    --prompt_file $PROMPT_FILE \
-    --output_dir $OUTPUT_DIR \
-    --model_name $MODEL_NAME \
-    --num_steps $NUM_STEPS \
-    --width $WIDTH \
-    --height $HEIGHT \
-    --seed $SEED \
-    --start_idx $START_IDX \
-    --end_idx $END_IDX
+python generate_cache_features.py \
+    --ckpt_dir "$CKPT_DIR" \
+    --output_dir "$OUTPUT_DIR" \
+    --task "$TASK" \
+    --size "$SIZE" \
+    --frame_num "$FRAME_NUM" \
+    --sample_steps "$SAMPLE_STEPS" \
+    --base_seed "$BASE_SEED" \
+    --vbench-json-path "$VBENCH_JSON" \
+    --index-start "$START_IDX" \
+    --index-end "$END_IDX"
 
 echo ""
-echo "========================================"
-echo "特征生成完成!"
-echo "数据保存在: $OUTPUT_DIR"
-echo "========================================"
-echo ""
-echo "下一步: 运行训练"
-echo "  bash run_train.sh"
+echo "Features written to: $OUTPUT_DIR"
+echo "Next step: bash run_train.sh"

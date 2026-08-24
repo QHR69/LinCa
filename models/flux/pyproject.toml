@@ -6,7 +6,6 @@ authors = [
 description = "Inference codebase for FLUX"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { file = "LICENSE.md" }
 dynamic = ["version"]
 dependencies = [
   "accelerate",
@@ -52,9 +51,6 @@ all = [
   "flux[streamlit]",
   "flux[torch]",
 ]
-
-[project.scripts]
-flux = "flux.cli:app"
 
 [build-system]
 build-backend = "setuptools.build_meta"

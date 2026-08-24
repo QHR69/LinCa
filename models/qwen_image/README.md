@@ -1,131 +1,127 @@
-# LinCA - Qwen-Image 文生图加速
+# LinCa on Qwen-Image
 
-基于 LinCA 两阶段可逆分解网络的 Qwen-Image 推理加速，支持 DrawBench 等文生图任务。
+Cache-accelerated Qwen-Image text-to-image generation with a two-stage learned
+invertible predictor. Evaluated on DrawBench in the paper.
 
-**运行环境**：`conda activate qwen_image`
-
-## 环境配置
-
-```bash
-# 创建 conda 环境
-conda create -n qwen_image python=3.10 -y
-conda activate qwen_image
-
-# 安装依赖（需与 Qwen-Image 官方要求一致）
-pip install torch torchvision torchaudio
-pip install transformers>=4.49.0   # 需 >=4.49 以支持 Qwen2.5-VL
-pip install diffusers
-pip install qwen-vl-utils
-# 其他依赖见项目 requirements
-```
-
-**注意**：`transformers>=4.49.0` 为必需，否则无法导入 `Qwen2_5_VLForConditionalGeneration`。
-
-## 全流程
-
-### 1. 生成 cache 数据
-
-在 `linca_data/` 下运行，生成训练用的中间特征：
-
-```bash
-cd qwen_image/linca_data
-
-# 单卡
-python generate_cache_data.py \
-    --prompt_file prompts/prompts_train.txt \
-    --output_dir data/cache_data \
-    --seed 0
-
-# 多卡
-CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 generate_cache_data_ddp.py \
-    --prompt_file prompts/prompts_train.txt \
-    --output_dir data/cache_data
-```
-
-Output directory结构：`data/cache_data/prompt_XXXX/cond/`, `uncond/` 等。
-
-### 2. 训练可逆网络
-
-使用生成的 cache 数据训练两阶段 predictor：
-
-```bash
-cd qwen_image/qwen_image_linca_two_stage
-
-# 修改 run_train.sh 中的 DATA_DIR 指向 cache Output directory，例如：
-# DATA_DIR="./cache_data"
-
-bash run_train.sh          # 可选传入 wandb key
-# 或
-bash run_tiny.sh           # 小规模测试
-bash run_large.sh          # 大规模配置
-```
-
-训练输出在 `outputs/linca_v4_two_stage_*/`，得到 `checkpoint_epoch_*.pt`。
-
-### 3. 推理生成图片
-
-```bash
-cd qwen_image/qwen_image_linca_two_stage
-
-# 单卡，使用 checkpoint.pt
-CUDA_VISIBLE_DEVICES=0 python sample_learned.py \
-    --checkpoint checkpoints/checkpoint.pt \
-    --prompt_file prompts/DrawBench200.txt \
-    --interval 6 \
-    --seed 0 \
-    --output_dir samples/test_inter6
-
-# 快速验证（仅生成 2 张）
-CUDA_VISIBLE_DEVICES=0 python sample_learned.py \
-    --checkpoint checkpoints/checkpoint.pt \
-    --prompt_file prompts/DrawBench200.txt \
-    --output_dir samples/test_inter6 --limit 2
-
-# 多卡
-CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 sample_ddp.py \
-    --checkpoint checkpoints/checkpoint.pt \
-    --prompt_file prompts/DrawBench200.txt \
-    --interval 6 \
-    --output_dir samples/test_ddp
-```
-
-## 目录结构
+## Layout
 
 ```
-qwen_image/
-├── README.md                 # 本文件
-├── linca_data/               # cache 数据生成
-│   ├── generate_cache_data.py
-│   ├── generate_cache_data_ddp.py
+models/qwen_image/
+├── linca_data/                    # cache-feature extraction
+│   ├── generate_cache_data.py     # single GPU
+│   ├── generate_cache_data_ddp.py # multi-GPU
 │   ├── prompts/
 │   └── pipeline/
-└── qwen_image_linca_two_stage/   # 训练与推理
-    ├── train.py
-    ├── run_train.sh
-    ├── sample_learned.py
-    ├── sample_ddp.py
-    ├── checkpoints/          # 存放 checkpoint.pt
-    ├── prompts/
-    │   ├── DrawBench200.txt
-    │   └── prompts_train.txt
-    └── dataset.py
+└── qwen_image_linca_two_stage/    # training and sampling
+    ├── train.py, run_train.sh, run_tiny.sh, run_large.sh
+    ├── sample_learned.py          # cache-accelerated sampling
+    ├── sample.py, sample_ddp.py   # baselines
+    ├── export_inference_checkpoint.py
+    ├── invertible_net.py          # the LinCa predictor
+    ├── dataset.py
+    ├── cache_functions/
+    └── prompts/
 ```
 
-- **2阶预测方法**：可通过 `--z2_forecast_method` 选择 `lagrange`（默认）或 `hermite`（与 freqca 一致）。
-
-## 推理 checkpoint 瘦身
-
-训练保存的 checkpoint 含 optimizer 等，体积较大。仅推理时可导出瘦身版：
+## Setup
 
 ```bash
-cd qwen_image_linca_two_stage
-python export_inference_checkpoint.py --input checkpoints/checkpoint_full.pt --output checkpoints/checkpoint.pt
+pip install -r requirements.txt
 ```
 
-推理结果与完整 checkpoint 一致。
+`transformers>=4.51` is required: below that, `Qwen2_5_VLForConditionalGeneration`
+cannot be imported and the pipeline fails to load.
 
-## 常见问题
+Qwen-Image itself is pulled from the Hub on first use (`Qwen/Qwen-Image`, about
+40 GB). Pass `--model_path` to point at a local copy instead.
 
-- **ImportError: Qwen2_5_VLForConditionalGeneration**：升级 `transformers>=4.49.0`
-- **数据目录不存在**：先完成步骤 1 生成 cache，再训练
-- **OOM**：减小 `batch_size` 或使用 `run_tiny.sh`
+## Sampling with the released predictor
+
+Skip training entirely if you just want accelerated generation:
+
+```bash
+huggingface-cli download QHRQQQ/LinCa qwen-image_checkpoint.pt --local-dir ./checkpoints
+
+cd models/qwen_image/qwen_image_linca_two_stage
+python sample_learned.py \
+  --checkpoint ../../../checkpoints/qwen-image_checkpoint.pt \
+  --prompt_file prompts/DrawBench200.txt \
+  --output_dir samples/qwen_image
+```
+
+The released checkpoint carries its own architecture config, so nothing else has to
+be configured. **Keep the code defaults** (`--interval 7`, `--forecast_method hermite`,
+`--z2_forecast_method lagrange`, `--num_steps 50`): they are what this checkpoint was
+trained for. Only change them if you retrain.
+
+Useful flags:
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--interval` | `7` | steps between full computations; higher is faster and less exact |
+| `--limit` | all | stop after N prompts, for a quick smoke test |
+| `--width`, `--height` | `1328` | output resolution |
+| `--num_steps` | `50` | denoising steps |
+| `--true_cfg_scale` | `4.0` | classifier-free guidance |
+| `--seed` | `0` | base seed |
+| `--z2_forecast_method` | `lagrange` | second-order forecast; `hermite` matches the FreqCa baseline |
+| `--test_FLOPs` | off | report FLOPs instead of only wall-clock (needs `calflops`) |
+
+Multi-GPU sampling goes through `sample_ddp.py` under `torchrun`.
+
+## Training your own predictor
+
+### 1. Extract cache features
+
+Runs full 50-step inference over a prompt set and stores the intermediate DiT
+features the predictor learns to forecast.
+
+```bash
+cd models/qwen_image/linca_data
+
+python generate_cache_data.py \
+  --prompt_file prompts/prompts_train.txt \
+  --output_dir data/cache_data \
+  --seed 0
+
+# or across 4 GPUs
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 generate_cache_data_ddp.py \
+  --prompt_file prompts/prompts_train.txt \
+  --output_dir data/cache_data
+```
+
+This writes `data/cache_data/prompt_XXXX/{cond,uncond}/`. Around 200-400 prompts is
+enough; the paper uses 400.
+
+### 2. Train
+
+```bash
+cd models/qwen_image/qwen_image_linca_two_stage
+
+# Point DATA_DIR at step 1's output, then:
+bash run_train.sh          # optionally pass a wandb key
+bash run_tiny.sh           # small config, for checking the loop runs
+bash run_large.sh          # the large config
+```
+
+Checkpoints land in `outputs/linca_two_stage_*/checkpoint_epoch_*.pt`. One predictor
+is trained per timestep segment, hence "two-stage".
+
+### 3. Shrink the checkpoint for inference
+
+Training checkpoints carry optimizer state. Export an inference-only copy:
+
+```bash
+python export_inference_checkpoint.py \
+  --input checkpoints/checkpoint_full.pt \
+  --output checkpoints/checkpoint.pt
+```
+
+The exported file embeds the predictor config, and produces identical images.
+
+## Troubleshooting
+
+- `ImportError: Qwen2_5_VLForConditionalGeneration` — upgrade `transformers` to 4.51 or newer.
+- "data directory does not exist" during training — run step 1 first, and check `DATA_DIR`.
+- Out of memory while training — lower `batch_size`, or start from `run_tiny.sh`.
+- Out of memory while sampling — lower `--width`/`--height`; 1328×1328 at 50 steps is the paper setting.

@@ -4,9 +4,9 @@ Cache utilities for the learned invertible decomposition network (multi-stage)
 Multi-stage design:
 - The user sets per-stage lengths via stage_splits, e.g. "12,12,13,13" for 4 stages
 - Stage 0: step 0-11, Stage 1: step 12-23, Stage 2: step 24-36, Stage 3: step 37-49
-- 每个阶段使用独立的 predictor
-- 步 k 属于 stage_i 时，分解需存 stage_i 及之后可能需要的 stage 的分解
-  (因为后续 stage 预测时可能需要前面步的缓存值作为参考点)
+- each stage has its own predictor
+- for a step in stage i, store the decomposition for stage i and any later stage that may need it
+  (a later stage can use an earlier step's cached value as a reference point)
 """
 
 import torch
@@ -118,7 +118,7 @@ def set_predictors(
 
 
 def get_predictor(step: Optional[int] = None) -> Optional[LearnedDecompositionPredictor]:
-    """根据步数返回对应的预测器。step=None 时返回第一个（用于检查是否已加载）"""
+    """Return the predictor for a step; step=None returns the first, which is enough to test whether any are loaded."""
     if len(_GLOBAL_PREDICTORS) == 0:
         return None
     if step is not None:
@@ -136,12 +136,12 @@ def get_stage_boundaries() -> List[Tuple[int, int]]:
 
 
 def _build_module_dict(values: list, distances: list, max_order: int) -> dict:
-    """从缓存的分量值构建导数近似字典，符号约定与非 learned 路径一致。
+    """Build the derivative-approximation dict from the cached partition values, using the same sign convention as the non-learned path.
 
-    distances[i] = current_step - act_step_i（正数，distances[0] 最小）
-    为了与 cache_formula 的符号约定匹配：
-    - prediction distance 传入 -distances[0]（负数）
-    - difference_distance = distances[i] - distances[i+1]（负数）
+    distances[i] = current_step - act_step_i, positive, with distances[0] the smallest
+    To match cache_formula's sign convention:
+    - the prediction distance is passed as -distances[0], i.e. negative
+    - difference_distance = distances[i] - distances[i+1], also negative
     """
     module_dict = {0: values[0]}
     n = len(values)
@@ -168,28 +168,28 @@ def _predict_with_formula(
     max_order: int,
     original_dtype,
 ) -> torch.Tensor:
-    """用 hermite/taylor 公式对每个分解分量独立预测，然后重建。
+    """Apply the hermite or taylor formula to each partition independently, then recompose.
 
-    decomposed_cache_list: [(d, z0, z1, z2), ...] 按 d 升序（float32），d 为正数。
+    decomposed_cache_list: [(d, z0, z1, z2), ...] sorted by ascending d, float32, d positive.
     """
     distances = [d for d, _, _, _ in decomposed_cache_list]
     z0_vals = [z0 for _, z0, _, _ in decomposed_cache_list]
     z1_vals = [z1 for _, _, z1, _ in decomposed_cache_list]
     z2_vals = [z2 for _, _, _, z2 in decomposed_cache_list]
 
-    pred_dist = -distances[0]  # 转为负数，与非 learned 路径的 distance 符号一致
+    pred_dist = -distances[0]  # negative, matching the sign the non-learned path uses
 
-    # z0: 0阶（直接复用）
+    # z0: zeroth order, reused directly
     z0_dict = _build_module_dict(z0_vals, distances, 0)
     z0_pred = _cache_formula_base(cache_dic, z0_dict, pred_dist, 0)
 
-    # z1: 最高 1阶
+    # z1: first order at most
     n = len(decomposed_cache_list)
     z1_order = min(1, max_order, n - 1)
     z1_dict = _build_module_dict(z1_vals, distances, z1_order)
     z1_pred = _cache_formula_base(cache_dic, z1_dict, pred_dist, z1_order)
 
-    # z2: 最高 max_order 阶
+    # z2: up to max_order
     z2_order = min(max_order, n - 1)
     z2_dict = _build_module_dict(z2_vals, distances, z2_order)
     z2_pred = _cache_formula_base(cache_dic, z2_dict, pred_dist, z2_order)
@@ -200,7 +200,7 @@ def _predict_with_formula(
 
 
 def module_cache_init_learned(cache_dic: Dict, current: Dict):
-    """初始化缓存（多阶段：decomposed 存 dict）"""
+    """Initialise the cache; the multi-stage path keeps decompositions in a dict."""
     if cache_dic['use_z_cache']:
         if current['step'] == 0:
             cache_dic['cache'][-1][current['module']] = {
@@ -221,10 +221,10 @@ def module_cache_init_learned(cache_dic: Dict, current: Dict):
 
 def derivative_approximation_learned(cache_dic: Dict, current: Dict, feature: torch.Tensor):
     """
-    存储特征及分解（多阶段版本）
+    Store the feature and its decompositions, across stages.
 
-    对于每个 full 步骤，用当前 stage 及后续 stage 的 predictor 分解特征。
-    因为后续 stage 在预测时可能需要当前步的分解作为参考。
+    For every full step, decompose with the current stage's predictor and the later stages'.
+    A later stage may need this step's decomposition as a reference point.
     """
     step = current['step']
 
@@ -253,7 +253,7 @@ def derivative_approximation_learned(cache_dic: Dict, current: Dict, feature: to
         feature_float = feature.float() if original_dtype != torch.float32 else feature
 
         decomposed_entry = {}
-        # 用当前 stage 及后续所有 stage 的 predictor 分解
+        # Decompose with the current stage's predictor and every later stage's
         for si in range(current_stage_idx, len(_GLOBAL_PREDICTORS)):
             pred = _GLOBAL_PREDICTORS[si]
             z0, z1, z2 = pred.decompose(feature_float)
@@ -267,7 +267,7 @@ def derivative_approximation_learned(cache_dic: Dict, current: Dict, feature: to
 
 
 def cache_step_learned(cache_dic: Dict, current: Dict) -> torch.Tensor:
-    """多阶段预测：根据 current_step 选择 predictor 和 decomposed key"""
+    """Multi-stage prediction: current_step selects both the predictor and the decomposition key."""
     current_step = current['step']
     predictor = get_predictor(current_step)
     if predictor is None:
@@ -305,7 +305,7 @@ def cache_step_learned(cache_dic: Dict, current: Dict) -> torch.Tensor:
         if forecast_method == 'lagrange':
             predicted = predictor.predict_from_decomposed(decomposed_cache_float, order=order)
         else:
-            # hermite 或 taylor：对每个分解分量独立应用公式
+            # hermite or taylor, applied to each partition independently
             max_order = cache_dic.get('max_order', 2)
             predicted = _predict_with_formula(
                 cache_dic, predictor, decomposed_cache_float, max_order, torch.float32
@@ -316,7 +316,7 @@ def cache_step_learned(cache_dic: Dict, current: Dict) -> torch.Tensor:
 
 
 def cache_step_merge_learned(cache_dic: Dict, current: Dict) -> torch.Tensor:
-    """多阶段合并预测"""
+    """Merge predictions across stages."""
     current_step = current['step']
     predictor = get_predictor(current_step)
     if predictor is None:
@@ -359,7 +359,7 @@ def cache_step_merge_learned(cache_dic: Dict, current: Dict) -> torch.Tensor:
             last_pred = predictor.predict_from_decomposed(last_decomposed_float, order=last_order).to(original_dtype) if len(last_decomposed_float) > 0 else None
             curr_pred = predictor.predict_from_decomposed(curr_decomposed_float, order=curr_order).to(original_dtype)
         else:
-            # hermite 或 taylor
+            # hermite or taylor
             last_pred = _predict_with_formula(
                 cache_dic, predictor, last_decomposed_float, max_order, torch.float32
             ).to(original_dtype) if len(last_decomposed_float) > 0 else None
@@ -414,7 +414,7 @@ def cache_step_merge(cache_dic: Dict, current: Dict) -> torch.Tensor:
 
 
 def pipeline_with_learned_cache(pipe, checkpoint_paths: List[str] = None, stage_splits_str: str = None, num_steps: int = 50):
-    """为 pipeline 配置可学习缓存（多阶段：需传路径列表和阶段划分）"""
+    """Attach the learned cache to a pipeline; multi-stage takes a list of paths plus the stage splits."""
     import types
     from flux.modules.flux_model import FluxTransformerBlock
 

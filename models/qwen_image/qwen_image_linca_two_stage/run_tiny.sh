@@ -1,38 +1,38 @@
 #!/bin/bash
 # Two-stage training: Stage1=0-24, Stage2=25-49
 #
-# 核心特性:
-# - 两个相同架构的可逆网络，分别训练前后25步
+# Key points:
+# - Two invertible networks of identical architecture, one per half of the schedule
 # - Early stopping B: stop only after both stages stall for N epochs
-# - 其它框架与 without_gate 一致
+# - Everything else follows the single-predictor recipe
 
-# 获取 wandb key（可选）
+# Optional wandb API key, taken as the first argument.
 WANDB_KEY=${1:-""}
 
-# 检查数据目录
+# The cache features must already exist.
 DATA_DIR="./cache_data"
 if [ ! -d "$DATA_DIR" ]; then
-    echo "错误: 数据目录不存在: $DATA_DIR"
+    echo "Error: feature directory not found: $DATA_DIR"
     exit 1
 fi
 
 if [ ! -f "prompts/eval.txt" ]; then
-    echo "错误: eval prompts文件不存在"
+    echo "Error: eval prompts file not found"
     exit 1
 fi
 
 echo "========================================"
-echo "两阶段训练: Stage1(0-24) + Stage2(25-49)"
+echo "Two-stage training: stage 1 = steps 0-24, stage 2 = steps 25-49"
 echo "========================================"
 echo ""
-echo "核心特性:"
-echo "  - 双 predictor: 同架构不同参数"
-echo "  - Early Stop B: 两个 stage 都无提升才停"
-echo "  - 可配置分区: split_dims=1024,1024,1024"
-echo "  - interval随机: [6,7,8,9,10,11,12]"
+echo "Key points:"
+echo "  - Two predictors: same architecture, separate weights"
+echo "  - Early stopping waits until both stages stop improving"
+echo "  - Partition sizes: split_dims=1024,1024,1024"
+echo "  - Interval randomised per sample: [6,7,8,9,10,11,12]"
 echo ""
 
-# === 训练参数 ===
+# === Optimisation ===
 BATCH_SIZE=32
 EPOCHS=50
 LR=1e-4
@@ -42,33 +42,33 @@ USE_AMP="--amp"
 GRAD_ACCUM=5
 SEED=0
 
-# === 模型参数 ===
+# === Predictor architecture ===
 NUM_BLOCKS=1
 HIDDEN_DIM=256
 SPLIT_DIMS="2048,512,512"
 DROPOUT=0
 
-# === Loss 权重 ===
+# === Loss weights ===
 Z_LOSS_WEIGHT=0.1
 
-# === 训练策略 ===
+# === Training schedule ===
 PROMPTS_PER_EPOCH=50
 EARLY_STOP_PATIENCE=20
 EVAL_INTERVAL=1
 SAVE_INTERVAL=1
 
-# === 数据划分 ===
+# === Data split ===
 TRAIN_PROMPTS="200-400"
 VAL_SAMPLE_RANGE="0-200"
 NUM_VAL_PROMPTS=25
 
 # === Output directory ===
-OUTPUT_DIR="outputs/linca_v4_two_stage_2048512512_b${NUM_BLOCKS}_h${HIDDEN_DIM}_32_5_50"
-EXP_NAME="two_stage_2048512512_v4_b${NUM_BLOCKS}_h${HIDDEN_DIM}_32_5_50"
-WANDB_PROJECT="linca_v4_two_stage_2048512512_1256_32_5_50"
+OUTPUT_DIR="outputs/linca_two_stage_2048512512_b${NUM_BLOCKS}_h${HIDDEN_DIM}_32_5_50"
+EXP_NAME="two_stage_2048512512_b${NUM_BLOCKS}_h${HIDDEN_DIM}_32_5_50"
+WANDB_PROJECT="linca_two_stage_2048512512_1256_32_5_50"
 
 if [ -n "$WANDB_KEY" ]; then
-    echo ">>> 使用 wandb 监控训练"
+    echo ">>> Logging to wandb"
     python train.py \
         --data_dir $DATA_DIR \
         --train_prompts $TRAIN_PROMPTS \
@@ -101,7 +101,7 @@ if [ -n "$WANDB_KEY" ]; then
         --seed $SEED \
         $USE_AMP
 else
-    echo ">>> 不使用 wandb（无API key）"
+    echo ">>> No wandb API key given; training without it"
     python train.py \
         --data_dir $DATA_DIR \
         --train_prompts $TRAIN_PROMPTS \
@@ -136,8 +136,8 @@ fi
 
 echo ""
 echo "========================================"
-echo "训练完成！"
-echo "模型保存在: $OUTPUT_DIR/"
+echo "Training complete."
+echo "Checkpoints written to: $OUTPUT_DIR/"
 echo "  - best_predictor_stage1.pt"
 echo "  - best_predictor_stage2.pt"
 echo "========================================"

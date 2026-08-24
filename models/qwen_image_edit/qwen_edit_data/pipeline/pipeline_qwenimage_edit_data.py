@@ -4,24 +4,16 @@ Extends QwenImageEditPipeline with generate_and_save_cache for saving cond/uncon
 Edit: latent_model_input = [latents, image_latents], cache saves only latent part [:, :latents.size(1)].
 """
 
-import sys
-import importlib.util
-from pathlib import Path
 import numpy as np
 import torch
 from typing import Any, Dict, List, Optional, Union
 
-# Load freqca_qwen pipeline without package conflict (local pipeline/ shadows it)
-_linca_root = Path(__file__).resolve().parent.parent.parent.parent.parent
-_freqca_edit_path = _linca_root / "freqca_qwen" / "pipeline" / "pipeline_qwenimage_edit.py"
-_spec = importlib.util.spec_from_file_location("qwenimage_edit_pipeline", _freqca_edit_path)
-_mod = importlib.util.module_from_spec(_spec)
-sys.path.insert(0, str(_linca_root / "freqca_qwen"))
-_spec.loader.exec_module(_mod)
-QwenImageEditPipeline = _mod.QwenImageEditPipeline
-calculate_shift = _mod.calculate_shift
-retrieve_latents = _mod.retrieve_latents
-retrieve_timesteps = _mod.retrieve_timesteps
+from .pipeline_qwenimage_edit import (
+    QwenImageEditPipeline,
+    calculate_shift,
+    retrieve_latents,
+    retrieve_timesteps,
+)
 
 try:
     import torch_xla.core.xla_model as xm

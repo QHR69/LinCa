@@ -1,132 +1,138 @@
-# LinCA - Qwen-Image-Edit 图编辑加速
+# LinCa on Qwen-Image-Edit
 
-基于 LinCA 两阶段可逆分解网络的 Qwen-Image-Edit 推理加速，支持 GEdit-Bench 等图编辑任务。
+Cache-accelerated instruction-based image editing with a two-stage learned
+invertible predictor. Evaluated on GEdit-Bench in the paper.
 
-**运行环境**：`conda activate qwen_image`
+## Layout
 
-## 环境配置
-
-```bash
-conda activate qwen_image
-pip install transformers>=4.49.0   # 需 >=4.49 以支持 Qwen2.5-VL
-# 其他依赖与 qwen_image 一致
+```
+models/qwen_image_edit/
+├── qwen_edit_data/                     # cache-feature extraction
+│   ├── generate_cache_data_edit.py
+│   ├── run_generate_cache_ddp.sh
+│   └── pipeline/
+└── qwen_image_edit_linca_two_stage/    # training and editing
+    ├── train.py, train_ddp.py
+    ├── run_train.sh, run_train_ddp.sh, run_ddp_mid.sh
+    ├── sample_edit_single.py           # one image or a CSV batch
+    ├── sample_learned_ddp.py           # full GEdit-Bench sweep
+    ├── sample_baseline_ddp.py          # uncached baseline
+    ├── export_inference_checkpoint.py
+    ├── invertible_net.py               # the LinCa predictor
+    ├── dataset.py, data_splits.py
+    ├── cache_functions/
+    └── demo_pairs/                     # 10 sample images with instructions
 ```
 
-## 全流程
-
-### 1. 生成 cache 数据
-
-从 `gedit_bench_numbered` 每隔 6 取 1（202 条）生成训练 cache：
+## Setup
 
 ```bash
-cd qwen_edit/qwen_edit_data
-
-# 单卡（测试）
-python generate_cache_data_edit.py --limit 1
-
-# 多卡（完整 202 条）
-CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 generate_cache_data_edit.py --ddp
-
-# 或
-CUDA_VISIBLE_DEVICES=0,1,2,3 bash run_generate_cache_ddp.sh
+pip install -r requirements.txt
 ```
 
-输出：`./cache_data/qwen_edit/sample_XXXX/` 及 `index.json`。
+`transformers>=4.51` is required for the Qwen2.5-VL encoder that Qwen-Image-Edit uses.
 
-### 2. 训练可逆网络
+The backbone (`Qwen/Qwen-Image-Edit`) is fetched from the Hub on first use; pass
+`--model_path` for a local copy.
 
-```bash
-cd qwen_edit/qwen_image_edit_linca_two_stage
-
-# 确保 CACHE_DATA_DIR 指向步骤 1 的输出
-# run_train_ddp.sh 中默认: CACHE_DATA_DIR="./cache_data/qwen_edit"
-
-NPROC=4 MASTER_PORT=29600 bash run_train_ddp.sh [WANDB_KEY]
-```
-
-输出：`outputs/qwen_edit_linca_two_stage*/.../checkpoint_epoch_50.pt`。
-
-### 3. 推理生成编辑图片
-
-**3.1 针对 gedit_bench_numbered 全量推理**
+## Editing with the released predictor
 
 ```bash
-cd qwen_edit/qwen_image_edit_linca_two_stage
+huggingface-cli download QHRQQQ/LinCa qwen-image-edit_checkpoint.pt --local-dir ./checkpoints
 
-# 单卡
-CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1 sample_learned_ddp.py \
-  --checkpoint_dir checkpoints/checkpoint_epoch_50.pt \
-  --dataset_path ./data/gedit_bench \
-  --output_dir samples/qwen_edit_1212_full \
-  --seed 0 --interval 7
+cd models/qwen_image_edit/qwen_image_edit_linca_two_stage
 
-# 多卡
-CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 --master_port=29601 sample_learned_ddp.py \
-  --checkpoint_dir checkpoints/checkpoint_epoch_50.pt \
-  --dataset_path ./data/gedit_bench \
-  --output_dir samples/qwen_edit_1212_full \
-  --seed 0 --interval 7
-```
-
-Output directory：`fullset/<task_type>/<lang>/<key>.png`，**输出会自动 resize 回原图尺寸**。
-
-**3.2 普适单张/批量编辑（不依赖 gedit_bench）**
-
-```bash
-cd qwen_edit/qwen_image_edit_linca_two_stage
-
-# 单张
-python sample_edit_single.py --checkpoint checkpoints/checkpoint.pt \
+# one image
+python sample_edit_single.py \
+  --checkpoint ../../../checkpoints/qwen-image-edit_checkpoint.pt \
   --image demo_pairs/images/img_1.png \
-  --prompt "将背景改为城市街道" \
+  --prompt "change the background to a city street" \
   --output output.png
 
-# 批量（demo_pairs 内含 10 组）
-python sample_edit_single.py --checkpoint checkpoints/checkpoint.pt \
+# the bundled 10-pair demo
+python sample_edit_single.py \
+  --checkpoint ../../../checkpoints/qwen-image-edit_checkpoint.pt \
   --pairs_file demo_pairs/pairs.csv \
   --output_dir samples/demo_edit
 
-# 快速验证（仅处理 2 条）
-python sample_edit_single.py --checkpoint checkpoints/checkpoint.pt \
-  --pairs_file demo_pairs/pairs.csv --output_dir samples/demo_edit --limit 2
+# same, but stop after 2 pairs
+python sample_edit_single.py \
+  --checkpoint ../../../checkpoints/qwen-image-edit_checkpoint.pt \
+  --pairs_file demo_pairs/pairs.csv \
+  --output_dir samples/demo_edit --limit 2
 ```
 
-## 目录结构
+`--checkpoint` is required. The released file embeds its architecture config, so
+**keep the code defaults** (`--interval 7`, `--z2_forecast_method lagrange`,
+`--num_steps 50`) unless you retrain.
 
-```
-qwen_edit/
-├── README.md                    # 本文件
-├── qwen_edit_data/              # cache 数据生成
-│   ├── generate_cache_data_edit.py
-│   └── run_generate_cache_ddp.sh
-└── qwen_image_edit_linca_two_stage/   # 训练与推理
-    ├── train.py
-    ├── train_ddp.py
-    ├── run_train_ddp.sh
-    ├── sample_learned_ddp.py    # gedit_bench 全量推理
-    ├── sample_edit_single.py    # 普适单张/批量推理
-    ├── sample_baseline_ddp.py   # 原始模型 baseline（无 cache）
-    ├── checkpoints/
-    ├── demo_pairs/              # 示例 10 组 图片+prompt
-    │   ├── images/
-    │   └── pairs.csv
-    └── cache_functions/
-```
+Inputs are resized to 1024×1024 for the model and results are resized back to the
+original dimensions before saving.
 
-## 推理 checkpoint 瘦身
-
-训练保存的 checkpoint 含 optimizer 等，体积约 1.8GB。仅推理时可导出瘦身版（约 600MB）：
+### Full GEdit-Bench sweep
 
 ```bash
-cd qwen_image_edit_linca_two_stage
-python export_inference_checkpoint.py --input checkpoints/checkpoint_full.pt --output checkpoints/checkpoint.pt
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 --master_port=29601 \
+  sample_learned_ddp.py \
+  --checkpoint ../../../checkpoints/qwen-image-edit_checkpoint.pt \
+  --dataset_path ./data/gedit_bench \
+  --output_dir samples/gedit_full \
+  --seed 0 --interval 7
 ```
 
-推理结果与完整 checkpoint 一致。
+Writes `<output_dir>/fullset/<task_type>/<lang>/<key>.png`. The script skips outputs
+that already exist, so an interrupted run can simply be restarted.
 
-## 重要说明
+GEdit-Bench is not redistributed here; fetch it from its own source and point
+`--dataset_path` at it.
 
-- **2阶预测方法**：可通过 `--z2_forecast_method` 选择 `lagrange`（默认）或 `hermite`（与 freqca 一致）。
-- **输出 resize**：推理时输入会 resize 到 1024×1024，生成结果会**自动 resize 回原图尺寸**后保存。
-- **断点续跑**：`sample_learned_ddp.py` 会检查输出文件是否存在，已存在则跳过，支持中断后继续。
-- **transformers 版本**：需 `>=4.49.0`，否则无法导入 Qwen2.5-VL。
+## Training your own predictor
+
+### 1. Extract cache features
+
+Takes every 6th GEdit-Bench sample (202 in total) and stores the cond/uncond
+features from a full 50-step edit.
+
+```bash
+cd models/qwen_image_edit/qwen_edit_data
+
+python generate_cache_data_edit.py --limit 1          # single sample, to verify the setup
+
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 \
+  generate_cache_data_edit.py --ddp                   # all 202
+# or
+CUDA_VISIBLE_DEVICES=0,1,2,3 bash run_generate_cache_ddp.sh
+```
+
+Output goes to `--cache_output_dir` (default `./cache_data/qwen_edit`) as
+`sample_XXXX/` directories plus an `index.json`.
+
+### 2. Train
+
+```bash
+cd models/qwen_image_edit/qwen_image_edit_linca_two_stage
+
+# run_train_ddp.sh expects CACHE_DATA_DIR to hold step 1's output;
+# it defaults to ./cache_data/qwen_edit
+NPROC=4 MASTER_PORT=29600 bash run_train_ddp.sh [WANDB_KEY]
+```
+
+Checkpoints land under `outputs/`.
+
+### 3. Shrink the checkpoint for inference
+
+A training checkpoint is roughly 1.8 GB because of optimizer state; the exported
+inference copy is about 600 MB and generates identical results:
+
+```bash
+python export_inference_checkpoint.py \
+  --input checkpoints/checkpoint_full.pt \
+  --output checkpoints/checkpoint.pt
+```
+
+## Notes
+
+- `--z2_forecast_method` selects the second-order forecast: `lagrange` (default) or
+  `hermite`, which matches the FreqCa baseline.
+- `sample_baseline_ddp.py` generates the uncached reference images that quality
+  metrics are measured against.

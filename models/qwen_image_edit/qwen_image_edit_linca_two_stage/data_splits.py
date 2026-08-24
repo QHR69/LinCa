@@ -1,8 +1,8 @@
 """
-数据划分: 22 验证 + 11 展示 + 180 训练
-- 验证: 11 task_type，每个 cn+en 各 1 条，固定 seed=42
-- 展示: 11 task_type 各 1 条，可混 cn/en
-- 训练: 202 - 22 = 180
+Data split: 180 train + 22 val + 11 display.
+- val: one Chinese and one English entry per task type, seed fixed at 42
+- display: one entry per task type, either language
+- train: the remaining 180 of the 202 samples
 """
 
 import os
@@ -20,7 +20,7 @@ TASK_TYPES = [
 
 
 def load_cache_metadata(cache_data_dir: str) -> List[Dict]:
-    """从 index.json 和 metadata 加载 202 条 cache 样本的元信息"""
+    """Load metadata for the 202 cached samples from index.json."""
     index_path = os.path.join(cache_data_dir, 'index.json')
     if not os.path.exists(index_path):
         raise FileNotFoundError(f"index.json not found: {index_path}")
@@ -58,17 +58,17 @@ def build_splits(
     display_seed: int = 43,
 ) -> Tuple[List[int], List[int], List[int]]:
     """
-    构建验证、展示、训练划分
+    Build the val, display and train splits.
     Returns:
-        val_sample_indices: 22 个 sample_idx
-        display_sample_indices: 11 个 sample_idx，每类 1 个
-        train_sample_indices: 180 个 sample_idx
+        val_sample_indices: 22 sample indices
+        display_sample_indices: 11 sample indices, one per task type
+        train_sample_indices: 180 sample indices
     """
     samples = load_cache_metadata(cache_data_dir)
     if len(samples) != 202:
         print(f"Warning: expected 202 samples, got {len(samples)}")
 
-    # 按 task_type + language 分组
+    # Group by task type and language
     by_tt_lang = {}
     for s in samples:
         tt = s['task_type']
@@ -89,12 +89,12 @@ def build_splits(
             continue
         cn_list = by_tt_lang[tt]['cn']
         en_list = by_tt_lang[tt]['en']
-        # 验证: 每个 task_type 选 1 cn + 1 en
+        # val: one Chinese and one English entry per task type
         if cn_list:
             val_indices.append(val_rng.choice(cn_list))
         if en_list:
             val_indices.append(val_rng.choice(en_list))
-        # 展示: 每类 1 个，优先 cn 若有则选 cn 否则 en
+        # display: one per task type, preferring Chinese and falling back to English
         if cn_list:
             display_indices.append(display_rng.choice(cn_list))
         elif en_list:
@@ -112,7 +112,7 @@ def save_splits(
     display_indices: List[int],
     train_indices: List[int],
 ):
-    """保存划分到 splits.json"""
+    """Write the split to splits.json."""
     os.makedirs(output_dir, exist_ok=True)
     path = os.path.join(output_dir, 'splits.json')
     with open(path, 'w', encoding='utf-8') as f:
@@ -125,7 +125,7 @@ def save_splits(
 
 
 def load_splits(output_dir: str) -> Tuple[List[int], List[int], List[int]]:
-    """从 splits.json 加载划分"""
+    """Load the split from splits.json."""
     path = os.path.join(output_dir, 'splits.json')
     with open(path, 'r', encoding='utf-8') as f:
         d = json.load(f)

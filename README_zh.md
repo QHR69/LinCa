@@ -78,6 +78,100 @@ LinCa 是 **分解 → 预测 → 重建** 流水线：
 </p>
 <p align="center"><em>图 3. LinCa 总览：特征缓存、分解–预测–重建流水线、可逆 block。</em></p>
 
+## 支持的模型
+
+| 模型 | 代码 | 已发布权重 | 说明 |
+|---|---|---|---|
+| FLUX.1-dev | [`models/flux`](models/flux) | 三阶段 predictor | 使用发布权重推理 |
+| Qwen-Image | [`models/qwen_image`](models/qwen_image) | 两阶段 checkpoint | 默认值与发布权重一致 |
+| Qwen-Image-Edit | [`models/qwen_image_edit`](models/qwen_image_edit) | 两阶段 checkpoint | 默认值与发布权重一致 |
+| HunyuanVideo | [`models/hunyuanvideo`](models/hunyuanvideo) | — | 需自行训练 |
+| Wan2.1 | [`models/wan2.1`](models/wan2.1) | — | 需自行训练 |
+
+Predictor 权重：[QHRQQQ/LinCa](https://huggingface.co/QHRQQQ/LinCa)。底模请从各官方渠道下载。
+
+## 安装
+
+各底模的上游依赖对 `diffusers`、`transformers` 版本要求互相冲突，因此每棵子树各带一份依赖清单。按需装一份即可，不要试图用一个环境覆盖全部五个：
+
+```bash
+git clone https://github.com/QHR69/LinCa.git
+cd LinCa
+
+pip install -r models/qwen_image/requirements.txt        # 或
+pip install -r models/qwen_image_edit/requirements.txt   # 或
+pip install -r models/flux/requirements.txt              # 或
+pip install -r models/hunyuanvideo/requirements.txt      # 或
+pip install -r models/wan2.1/requirements.txt
+```
+
+如果 `pip` 可能装成 CPU 版，请先单独安装 CUDA 版 PyTorch。本仓库不需要 `pip install -e .`，脚本会自行设置 `PYTHONPATH`。Qwen-Image 另需 `transformers>=4.49` 以支持 Qwen2.5-VL。
+
+底模权重需从官方渠道自行获取：LinCa 的 checkpoint 只是缓存预测器，不含扩散模型本体。
+
+## 快速开始
+
+下载 predictor、指向底模、采样即可。完整参数见 [`docs/inference.md`](docs/inference.md)。
+
+### Qwen-Image
+
+```bash
+huggingface-cli download QHRQQQ/LinCa qwen-image_checkpoint.pt --local-dir ./checkpoints
+
+cd models/qwen_image/qwen_image_linca_two_stage
+python sample_learned.py \
+  --checkpoint ../../../checkpoints/qwen-image_checkpoint.pt \
+  --prompt_file prompts/DrawBench200.txt \
+  --output_dir samples/qwen_image
+```
+
+底模首次运行时从 `Qwen/Qwen-Image` 下载。这套默认值就是上表中 **4.90×** 的工作点。
+
+### Qwen-Image-Edit
+
+```bash
+huggingface-cli download QHRQQQ/LinCa qwen-image-edit_checkpoint.pt --local-dir ./checkpoints
+
+cd models/qwen_image_edit/qwen_image_edit_linca_two_stage
+python sample_edit_single.py \
+  --checkpoint ../../../checkpoints/qwen-image-edit_checkpoint.pt \
+  --image path/to/input.png \
+  --prompt "your edit instruction"
+```
+
+GEdit-Bench 全量批式编辑见 `sample_learned_ddp.py`。
+
+### FLUX.1-dev
+
+```bash
+huggingface-cli download QHRQQQ/LinCa --include 'flux/*' --local-dir ./checkpoints
+
+export FLUX_CHECKPOINT_DIR=/path/to/FLUX.1-dev
+cd models/flux
+bash run_sample.sh ../../checkpoints/flux 17,17,16
+```
+
+`--include 'flux/*'` 很关键：每个 stage 的 `.pt` 旁边都有一个 `best_predictor_stageN_config.json`，加载时两者都要；只给权重会回退到另一套结构从而加载失败。`run_sample.sh` 通过 `FLUX_CHECKPOINT_DIR`（或分别用 `FLUX_MODEL` / `FLUX_AE`）定位官方 FLUX.1-dev 文件（`flux1-dev.safetensors`、`ae.safetensors`）。阶段划分 `17,17,16` 对应 50 步调度。
+
+### HunyuanVideo / Wan2.1
+
+这两个模型不发布已训练权重。请按下节流程自行训练，再运行对应目录下的 `run_sample.sh`。
+
+> 发布的推理脚本请保持**与已发布权重一致的代码默认值**，不要为了对齐论文扫描而改默认超参。
+
+## 自行训练 predictor
+
+训练很便宜：100–200 条缓存特征，单卡 12 GB **约 1 小时**，且全程不加载底模。
+
+1. **提取缓存特征**：用底模按完整步数跑一个小 prompt 集，保存每一步的 DiT 中间特征。
+2. **训练**：在这些特征上按时间段各训一个可逆 predictor。
+3. **采样**：把得到的 checkpoint 传给采样脚本。
+
+第 1 步的瓶颈在磁盘而非算力；各模型 README 给出了占用量和限制 prompt 数量的方法。具体命令见
+[Qwen-Image](models/qwen_image)、[Qwen-Image-Edit](models/qwen_image_edit)、[HunyuanVideo](models/hunyuanvideo)、[Wan2.1](models/wan2.1)。
+
+FLUX 的训练代码不在本次发布范围内，该子树仅支持用已发布 predictor 做推理。
+
 ## 实验结果
 
 ### 文生图：FLUX.1-dev
@@ -285,65 +379,34 @@ LinCa 与模型压缩互补：在蒸馏和 INT8 底模上继续加速，**同时
   <img src="assets/tab6_predictor.png" width="72%" alt="高阶预测器对比">
 </p>
 
-发布的推理脚本请保持**与已发布权重一致的代码默认值**，不要为了对齐论文扫描而改默认超参。
+## 仓库结构
 
-## 支持的模型
-
-| 模型 | 代码 | 已发布权重 | 说明 |
-|---|---|---|---|
-| FLUX.1-dev | [`models/flux`](models/flux) | 三阶段 predictor | 使用发布权重推理 |
-| Qwen-Image | [`models/qwen_image`](models/qwen_image) | 两阶段 checkpoint | 默认值与发布权重一致 |
-| Qwen-Image-Edit | [`models/qwen_image_edit`](models/qwen_image_edit) | 两阶段 checkpoint | 默认值与发布权重一致 |
-| HunyuanVideo | [`models/hunyuanvideo`](models/hunyuanvideo) | — | 需自行训练 |
-| Wan2.1 | [`models/wan2.1`](models/wan2.1) | — | 需自行训练 |
-
-Predictor 权重：[QHRQQQ/LinCa](https://huggingface.co/QHRQQQ/LinCa)。底模请从各官方渠道下载。
-
-## 快速开始
-
-先按对应底模安装官方环境，再加载 LinCa predictor。更完整参数见 [`docs/inference.md`](docs/inference.md)。
-
-### Qwen-Image
-
-```bash
-huggingface-cli download QHRQQQ/LinCa qwen-image_checkpoint.pt --local-dir ./checkpoints
-
-cd models/qwen_image/qwen_image_linca_two_stage
-python sample_learned.py \
-  --checkpoint ../../../checkpoints/qwen-image_checkpoint.pt \
-  --prompt_file prompts/DrawBench200.txt \
-  --output_dir samples/qwen_image
+```
+LinCa/
+├── models/flux                 # FLUX 推理
+├── models/qwen_image           # Qwen-Image 训练 + 采样
+├── models/qwen_image_edit      # Qwen-Image-Edit 训练 + 采样
+├── models/hunyuanvideo         # HunyuanVideo 训练 + 采样
+├── models/wan2.1               # Wan2.1 训练 + 采样
+├── docs/                       # 补充说明
+└── assets/                     # 论文图表
 ```
 
-### Qwen-Image-Edit
+## 致谢
 
-```bash
-huggingface-cli download QHRQQQ/LinCa qwen-image-edit_checkpoint.pt --local-dir ./checkpoints
+LinCa 建立在特征缓存这条研究线之上，本仓库也依赖以下开源工作：
 
-cd models/qwen_image_edit/qwen_image_edit_linca_two_stage
-python sample_edit_single.py \
-  --checkpoint ../../../checkpoints/qwen-image-edit_checkpoint.pt \
-  --image path/to/input.png \
-  --prompt "your edit instruction"
-```
-
-### FLUX.1-dev
-
-```bash
-huggingface-cli download QHRQQQ/LinCa \
-  flux/best_predictor_stage0.pt \
-  flux/best_predictor_stage1.pt \
-  flux/best_predictor_stage2.pt \
-  --local-dir ./checkpoints
-
-export FLUX_CHECKPOINT_DIR=/path/to/FLUX.1-dev
-cd models/flux
-bash run_sample.sh ../../checkpoints/flux 17,17,16
-```
-
-### HunyuanVideo / Wan2.1
-
-各目录含训练与采样脚本，但不发布已训练权重。
+- **FreqCa**（[arXiv:2510.08669](https://arxiv.org/abs/2510.08669)）—— LinCa 所推广的频域分解缓存，
+  我们把它固定的 FFT/DCT 划分换成了可学习的可逆划分。`cache_functions/` 中的缓存记账沿用 FreqCa 的接口，
+  各子树中的 `cache_utils.py` 保留为 baseline 路径。
+- **[TaylorSeer](https://github.com/Shenyi-Z/TaylorSeer)**（ICCV 2025）—— 基于 Taylor 展开的特征预测，
+  我们最直接的对比方法，也是 HunyuanVideo 与 Wan2.1 子树中视频缓存脚手架的来源。
+- 底模：**[FLUX](https://github.com/black-forest-labs/flux)**（Black Forest Labs）、
+  **[Qwen-Image](https://github.com/QwenLM/Qwen-Image)** 与 Qwen-Image-Edit（阿里）、
+  **[HunyuanVideo](https://github.com/Tencent-Hunyuan/HunyuanVideo)**（腾讯）、
+  **[Wan2.1](https://github.com/Wan-Video/Wan2.1)**（阿里）。
+- 评测：**[VBench](https://github.com/Vchitect/VBench)**、
+  **[ImageReward](https://github.com/THUDM/ImageReward)**、GEdit-Bench。
 
 ## 引用
 

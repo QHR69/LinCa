@@ -1,0 +1,30 @@
+# LinCa on Qwen-Image-Edit: cache-data generation, predictor training, editing.
+#
+# Install torch first, matched to your CUDA version:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+# then:
+#   pip install -r requirements.txt
+
+torch>=2.4
+torchvision
+numpy>=1.23,<2
+pillow
+tqdm
+
+# The Qwen-Image-Edit pipeline and its Qwen2.5-VL vision-language encoder.
+diffusers>=0.35
+transformers>=4.51
+tokenizers
+safetensors
+huggingface-hub
+sentencepiece
+protobuf
+accelerate
+
+# LinCa predictor training.
+torch-dct
+wandb
+
+# --- optional ---
+# FLOPs accounting behind --test_FLOPs.
+# calflops

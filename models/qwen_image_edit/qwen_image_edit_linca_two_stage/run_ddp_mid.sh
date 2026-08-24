@@ -2,10 +2,10 @@
 set -e
 set -o pipefail
 
-# qwen_edit LinCA 两阶段多卡训练 (DDP)
+# Qwen-Image-Edit: two-stage LinCa predictor training across GPUs (DDP).
 # Usage: ./run_ddp_mid.sh [WANDB_KEY]
-# 示例: NPROC=8 MASTER_PORT=29602 bash ./run_ddp_mid.sh wandb_v1_xxx
-# 端口占用时换 MASTER_PORT；OOM 时确保 8 张 GPU 空闲或减小 BATCH_SIZE
+# Example: NPROC=8 MASTER_PORT=29602 bash ./run_ddp_mid.sh wandb_v1_xxx
+# Change MASTER_PORT if it is taken; on OOM free up the GPUs or lower BATCH_SIZE
 
 WANDB_KEY=${1:-""}
 NPROC=${NPROC:-$(nvidia-smi -L | wc -l)}
@@ -15,19 +15,19 @@ MASTER_ADDR=${MASTER_ADDR:-127.0.0.1}
 CACHE_DATA_DIR="./cache_data/qwen_edit"
 DATASET_PATH="./data/gedit_bench"
 if [ ! -d "$CACHE_DATA_DIR" ]; then
-    echo "错误: cache 目录不存在: $CACHE_DATA_DIR"
+    echo "Error: cache directory not found: $CACHE_DATA_DIR"
     exit 1
 fi
 if [ ! -f "$CACHE_DATA_DIR/index.json" ]; then
-    echo "错误: index.json 不存在"
+    echo "Error: index.json not found"
     exit 1
 fi
 
 echo "========================================"
-echo "qwen_edit 两阶段多卡训练 (DDP): $NPROC GPUs"
+echo "Qwen-Image-Edit two-stage training (DDP): $NPROC GPUs"
 echo "Stage1(0-24) + Stage2(25-49)"
 echo "========================================"
-echo "数据: 22 val + 180 train + 11 display"
+echo "Data: 180 train + 22 val + 11 display"
 echo "CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES:-<not set>}"
 echo "MASTER_ADDR: $MASTER_ADDR"
 echo "MASTER_PORT: $MASTER_PORT"
@@ -60,7 +60,7 @@ MODEL_PATH="Qwen/Qwen-Image-Edit"
 
 cd "$(dirname "$0")"
 
-# eval 仅 rank0 跑 11 张图约 10–15 分钟，其他 rank 在 barrier 等待；避免 NCCL 默认 10 分钟超时
+# Rank 0 renders 11 eval images (10-15 min) while the others wait at a barrier, so raise the NCCL timeout above its 10-minute default
 export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=${TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC:-7200}
 
 ARGS="--cache_data_dir $CACHE_DATA_DIR \
@@ -91,7 +91,7 @@ ARGS="--cache_data_dir $CACHE_DATA_DIR \
     --seed $SEED \
     $USE_AMP"
 
-# 优先使用 torchrun，否则用 python -m torch.distributed.run
+# Prefer torchrun, falling back to python -m torch.distributed.run
 if command -v torchrun &>/dev/null; then
     LAUNCHER="torchrun --nproc_per_node=$NPROC --master_addr=$MASTER_ADDR --master_port=$MASTER_PORT"
 else
@@ -105,4 +105,4 @@ else
 fi
 
 echo ""
-echo "训练完成! 模型保存在: $OUTPUT_DIR/$WANDB_PROJECT/$EXP_NAME/"
+echo "Training complete. Checkpoints: $OUTPUT_DIR/$WANDB_PROJECT/$EXP_NAME/"

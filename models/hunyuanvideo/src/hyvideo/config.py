@@ -405,7 +405,7 @@ def add_inference_args(parser: argparse.ArgumentParser):
 
 
 def add_cache_args(parser: argparse.ArgumentParser):
-    group = parser.add_argument_group(title="Cache acceleration args (flux_v4 method)")
+    group = parser.add_argument_group(title="Cache acceleration args (LinCa method)")
 
     group.add_argument(
         "--interval",

@@ -1,6 +1,6 @@
 from .cache_init import cache_init
 from .cal_type import cal_type
-# 导入兼容性包装函数（会根据decompose_method自动选择learned或原版）
+# Compatibility wrappers, which dispatch on decompose_method between learned and baseline
 from .cache_utils_learned import (
     module_cache_init,
     derivative_approximation,

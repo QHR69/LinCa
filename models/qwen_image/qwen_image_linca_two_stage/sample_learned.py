@@ -1,20 +1,20 @@
 """
 Sample script for inference with two-stage learned invertible decomposition network
 
-使用训练好的两阶段 learned 权重进行推理
+Sample with trained two-stage LinCa predictor weights.
 
-用法 1 - 单文件 checkpoint（推荐，checkpoint_epoch_*.pt 含 stage1+stage2）:
+Usage 1 -- a single checkpoint file, recommended, since checkpoint_epoch_*.pt holds both stages:
     python sample_learned.py \
         --checkpoint outputs/.../checkpoint_epoch_26.pt \
         --prompt_file prompts/DrawBench200.txt \
         --output_dir samples/output
 
-用法 2 - 指定目录（自动查找 best_/predictor_stage1.pt 或 checkpoint_epoch_*.pt）:
+Usage 2 -- a directory, searched for best_predictor_stage1.pt, predictor_stage1.pt or checkpoint_epoch_*.pt:
     python sample_learned.py \
-        --checkpoint_dir outputs/linca_v4_two_stage/two_stage_v4 \
+        --checkpoint_dir outputs/linca_two_stage/two_stage \
         ...
 
-用法 3 - 分别指定 stage1/stage2:
+Usage 3 -- name the stage 1 and stage 2 checkpoints separately:
     python sample_learned.py \
         --checkpoint_stage1 .../best_predictor_stage1.pt \
         --checkpoint_stage2 .../best_predictor_stage2.pt \
@@ -43,8 +43,8 @@ def _torch_load(path, map_location):
 
 def load_predictor_flexible(checkpoint_path: str, device: str = 'cuda'):
     """
-    灵活加载 predictor：支持训练 checkpoint (config+model_state_dict) 或 from_pretrained 格式。
-    two_stage 版本使用 split_dims。
+    Load a predictor from either a training checkpoint (config plus model_state_dict) or the from_pretrained layout.
+    The two-stage variant uses split_dims.
     """
     ckpt = _torch_load(checkpoint_path, device)
     if isinstance(ckpt, dict) and 'config' in ckpt and 'model_state_dict' in ckpt:
@@ -64,8 +64,8 @@ def load_predictor_flexible(checkpoint_path: str, device: str = 'cuda'):
 
 def load_two_stage_predictors(path_s1: str, path_s2: str, device: str = 'cuda'):
     """
-    加载两阶段 predictor。若 path_s1 与 path_s2 指向同一 checkpoint 文件且该文件包含
-    predictor_stage1 和 predictor_stage2，则从该文件加载；否则分别加载两个文件。
+    Load both predictor stages. If path_s1 and path_s2 name the same checkpoint and it
+    contains predictor_stage1 and predictor_stage2, both come from that file; otherwise each is loaded separately.
     """
     if path_s1 == path_s2 and os.path.exists(path_s1):
         ckpt = _torch_load(path_s1, device)
@@ -92,14 +92,14 @@ def load_two_stage_predictors(path_s1: str, path_s2: str, device: str = 'cuda'):
 
 
 def read_prompts(prompt_file: str):
-    """读取 prompt 文件"""
+    """Read a prompt file, one prompt per line."""
     with open(prompt_file, 'r', encoding='utf-8') as f:
         prompts = [line.strip() for line in f if line.strip()]
     return prompts
 
 
 def collect_missing_images(prompts, num_images_per_prompt, output_dir):
-    """收集尚未生成的图片 (img_idx, prompt_idx, prompt)，支持断点续采"""
+    """Collect the images still to render as (img_idx, prompt_idx, prompt), so a run can resume."""
     missing = []
     for img_idx in range(num_images_per_prompt):
         for i, prompt in enumerate(prompts):
@@ -111,20 +111,20 @@ def collect_missing_images(prompts, num_images_per_prompt, output_dir):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate images using two-stage learned decomposition (v4)")
+    parser = argparse.ArgumentParser(description="Generate images using two-stage learned decomposition")
     
     parser.add_argument('--checkpoint', type=str, default=None,
-                        help='Single checkpoint file (checkpoint_epoch_*.pt) containing both stage1+stage2; 等同 --checkpoint_stage1/2 指向同一文件')
+                        help='Single checkpoint file (checkpoint_epoch_*.pt) holding both stages; equivalent to pointing --checkpoint_stage1 and --checkpoint_stage2 at the same file')
     parser.add_argument('--checkpoint_stage1', type=str, default=None,
                         help='Path to stage1 predictor (e.g., best_predictor_stage1.pt)')
     parser.add_argument('--checkpoint_stage2', type=str, default=None,
                         help='Path to stage2 predictor (e.g., best_predictor_stage2.pt)')
     parser.add_argument('--checkpoint_dir', type=str, default=None,
-                        help='Directory containing best_predictor_stage1.pt or predictor_stage1.pt (或 checkpoint_epoch_*.pt)')
+                        help='Directory containing best_predictor_stage1.pt, predictor_stage1.pt or checkpoint_epoch_*.pt')
     
     parser.add_argument('--prompt_file', type=str, default='prompts/DrawBench200.txt')
     parser.add_argument('--output_dir', type=str, default='samples/two_stage_output')
-    parser.add_argument('--limit', type=int, default=None, help='最多生成的 prompt 数量（用于快速验证）')
+    parser.add_argument('--limit', type=int, default=None, help='cap on how many prompts to render, useful for a quick check')
     
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--interval', type=int, default=7)
@@ -156,12 +156,12 @@ def main():
     args = parser.parse_args()
     
     t_start = time.perf_counter()
-    # 1. --checkpoint: 单文件（checkpoint_epoch_*.pt），同时用作 stage1 和 stage2
+    # 1. --checkpoint: one file (checkpoint_epoch_*.pt) supplying both stages
     if args.checkpoint is not None:
         if not os.path.isfile(args.checkpoint):
             raise FileNotFoundError(f"Checkpoint file not found: {args.checkpoint}")
         path_s1 = path_s2 = args.checkpoint
-    # 2. --checkpoint_dir: 目录，查找 best_/predictor_stage1.pt 或 checkpoint_epoch_*.pt
+    # 2. --checkpoint_dir: a directory, searched for best_predictor_stage1.pt or checkpoint_epoch_*.pt
     elif args.checkpoint_dir is not None:
         dirpath = args.checkpoint_dir
         if not os.path.isdir(dirpath):
@@ -172,7 +172,7 @@ def main():
             path_s1 = os.path.join(dirpath, 'predictor_stage1.pt')
         if not os.path.exists(path_s2):
             path_s2 = os.path.join(dirpath, 'predictor_stage2.pt')
-        # 若只有 checkpoint_epoch_*.pt，用最新的
+        # With only checkpoint_epoch_*.pt files present, take the newest
         if not os.path.exists(path_s1) or not os.path.exists(path_s2):
             import glob
             ckpts = sorted(glob.glob(os.path.join(dirpath, 'checkpoint_epoch_*.pt')))
@@ -205,7 +205,7 @@ def main():
     print(f"    Stage2: {path_s2}")
     
     predictor_stage1, predictor_stage2 = load_two_stage_predictors(path_s1, path_s2, device=device)
-    # 加载后预计算并缓存逆向权重，推理时不再调用 torch.linalg.inv
+    # Precompute and cache the inverse weights so inference never calls torch.linalg.inv
     predictor_stage1.register_inverse_weights()
     predictor_stage2.register_inverse_weights()
     predictor_stage1.eval()
@@ -302,9 +302,9 @@ def main():
         output_path = os.path.join(args.output_dir, filename)
         
         exif_data = Image.Exif()
-        exif_data[ExifTags.Base.Software] = "AI generated;t2i;qwen-learned-v4-two-stage"
+        exif_data[ExifTags.Base.Software] = "AI generated;t2i;qwen-linca-two-stage"
         exif_data[ExifTags.Base.Make] = "Qwen"
-        exif_data[ExifTags.Base.Model] = "learned-decomposition-v4-two-stage"
+        exif_data[ExifTags.Base.Model] = "learned-decomposition-two-stage"
         if args.add_metadata:
             exif_data[ExifTags.Base.ImageDescription] = prompt
         

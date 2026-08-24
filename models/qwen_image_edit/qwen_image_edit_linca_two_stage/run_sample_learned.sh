@@ -1,6 +1,6 @@
 #!/bin/bash
-# 单卡推理 1212 张
-# Usage: bash run_sample_learned.sh [checkpoint或checkpoint_dir]
+# Render all 1212 samples on one GPU.
+# Usage: bash run_sample_learned.sh [checkpoint | checkpoint_dir]
 CKPT="${1:-outputs/qwen_edit_linca_two_stage/qwen_edit_linca_two_stage/qwen_edit_two_stage_b3_h256}"
 DATASET_PATH="./data/gedit_bench"
 OUTPUT_DIR="samples/qwen_edit_1212_full"

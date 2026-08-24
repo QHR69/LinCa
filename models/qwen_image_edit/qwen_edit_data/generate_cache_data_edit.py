@@ -1,5 +1,5 @@
 """
-Generate cache data for qwen_edit LinCA training.
+Generate cache data for qwen_edit LinCa training.
 202 samples: indices [0, 6, 12, ..., 1206] from gedit_bench_numbered.
 Resize to 1024x1024, seed = base_seed + original_idx.
 Cache saved to ./cache_data, images to current dir.
@@ -26,16 +26,17 @@ import types
 import importlib.util
 
 _script_dir = Path(__file__).resolve().parent
-_linca_root = _script_dir.parent.parent.parent  # qwen_edit_data->qwen_edit->Linca->LinCA
+_models_root = _script_dir.parent.parent  # qwen_edit_data -> qwen_image_edit -> models
 sys.path.insert(0, str(_script_dir))
 
 # Load transformer from linca_data (avoid pipeline package conflict)
+_linca_data = _models_root / "qwen_image" / "linca_data"
 _tf_spec = importlib.util.spec_from_file_location(
     "transformer_qwenimage_data",
-    _linca_root / "Linca" / "qwen_image" / "linca_data" / "pipeline" / "transformer_qwenimage_data.py",
+    _linca_data / "pipeline" / "transformer_qwenimage_data.py",
 )
 _tf_mod = importlib.util.module_from_spec(_tf_spec)
-sys.path.insert(0, str(_linca_root / "Linca" / "qwen_image" / "linca_data"))
+sys.path.insert(0, str(_linca_data))
 _tf_spec.loader.exec_module(_tf_mod)
 QwenImageTransformer2DModelForData = _tf_mod.QwenImageTransformer2DModelForData
 
@@ -58,7 +59,7 @@ class DataGenConfig:
     model_path: str = "Qwen/Qwen-Image-Edit"
     sample_interval: int = 6  # indices 0, 6, 12, ..., 1206 -> 202 samples
     limit: Optional[int] = None  # limit samples for testing (e.g. 1)
-    only_indices: Optional[List[int]] = None  # 仅生成指定 sample_idx，用于补全缺失
+    only_indices: Optional[List[int]] = None  # restrict to these sample indices, to fill gaps
 
 
 def load_id_mapping_and_build_samples(config: DataGenConfig) -> List[dict]:
@@ -110,7 +111,7 @@ def load_id_mapping_and_build_samples(config: DataGenConfig) -> List[dict]:
 
 
 def rebuild_index_from_dirs(config: DataGenConfig):
-    """从已有 sample_* 目录重建 index.json"""
+    """Rebuild index.json from the sample_* directories already on disk."""
     samples = []
     for d in sorted(Path(config.cache_output_dir).glob("sample_*")):
         if not d.is_dir():

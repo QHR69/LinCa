@@ -1,16 +1,16 @@
 """
-普适单张/批量图片编辑推理脚本（LinCA 两阶段 learned cache）
+Edit one image or a batch of them with the two-stage LinCa learned cache.
 
-不依赖 gedit_bench_numbered 数据集，可对任意图片+prompt 进行编辑。
-输出会 resize 回原图尺寸。
+Works on any image and prompt, with no dependency on the gedit_bench_numbered dataset.
+Results are resized back to the source resolution.
 
 Usage:
-    # 单张
+    # Single image
     python sample_edit_single.py --checkpoint checkpoints/checkpoint_epoch_50.pt \\
-        --image demo_pairs/images/img_1.png --prompt "将背景改为城市街道" \\
+        --image demo_pairs/images/img_1.png --prompt "Change the background to a city street" \\
         --output output.png
 
-    # 批量（从 pairs.csv）
+    # Batch, driven by pairs.csv
     python sample_edit_single.py --checkpoint checkpoints/checkpoint_epoch_50.pt \\
         --pairs_file demo_pairs/pairs.csv --output_dir samples/demo_edit
 """
@@ -26,11 +26,6 @@ from PIL import Image
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
-_LINCA_ROOT = _SCRIPT_DIR.parent.parent.parent
-_PIPELINE_BASE = _LINCA_ROOT / "freqca_qwen"
-if str(_PIPELINE_BASE) not in sys.path:
-    sys.path.insert(1, str(_PIPELINE_BASE))
-
 _to_remove = [k for k in list(sys.modules) if k == "cache_functions" or k.startswith("cache_functions.")]
 for _k in _to_remove:
     del sys.modules[_k]
@@ -80,7 +75,7 @@ def load_two_stage(checkpoint_path: str, device: str):
 
 
 def load_pairs(pairs_file: str, images_dir: str):
-    """加载 pairs.csv: image,prompt"""
+    """Load pairs.csv, whose columns are image,prompt."""
     items = []
     images_dir = Path(images_dir)
     with open(pairs_file, "r", encoding="utf-8") as f:
@@ -99,13 +94,13 @@ def load_pairs(pairs_file: str, images_dir: str):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--checkpoint", type=str, required=True)
-    ap.add_argument("--image", type=str, default=None, help="单张图片路径")
-    ap.add_argument("--prompt", type=str, default=None, help="单张时的编辑指令")
-    ap.add_argument("--pairs_file", type=str, default=None, help="批量: pairs.csv")
-    ap.add_argument("--images_dir", type=str, default=None, help="pairs 中 image 列相对于此目录")
-    ap.add_argument("--output", type=str, default="output.png", help="单张输出路径")
-    ap.add_argument("--output_dir", type=str, default="samples/demo_edit", help="批量Output directory")
-    ap.add_argument("--limit", type=int, default=None, help="批量时最多处理条数（用于快速验证）")
+    ap.add_argument("--image", type=str, default=None, help="path to a single image")
+    ap.add_argument("--prompt", type=str, default=None, help="edit instruction for the single-image case")
+    ap.add_argument("--pairs_file", type=str, default=None, help="pairs.csv, for batch mode")
+    ap.add_argument("--images_dir", type=str, default=None, help="directory the image column in pairs.csv is relative to")
+    ap.add_argument("--output", type=str, default="output.png", help="output path for the single-image case")
+    ap.add_argument("--output_dir", type=str, default="samples/demo_edit", help="output directory for batch mode")
+    ap.add_argument("--limit", type=int, default=None, help="cap on how many pairs to process, useful for a quick check")
     ap.add_argument("--z2_forecast_method", type=str, default="lagrange",
                     choices=["lagrange", "hermite"], help="2nd-order forecast: lagrange (default) or hermite")
     ap.add_argument("--interval", type=int, default=7)
@@ -135,7 +130,7 @@ def main():
     }
 
     if args.image and args.prompt:
-        # 单张
+        # Single image
         img = Image.open(args.image).convert("RGB")
         orig_w, orig_h = img.size
         img_resized = img.resize((args.width, args.height), Image.Resampling.LANCZOS)
@@ -164,7 +159,7 @@ def main():
         print(f"Saved: {args.output} (resized to {orig_w}x{orig_h})")
 
     elif args.pairs_file:
-        # 批量
+        # Batch
         images_dir = args.images_dir or str(Path(args.pairs_file).parent / "images")
         pairs = load_pairs(args.pairs_file, images_dir)
         if args.limit is not None:

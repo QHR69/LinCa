@@ -95,7 +95,7 @@ class CacheDataset(Dataset):
         """
         Full-compute steps for a given interval
         
-        Same logic as LinCA:
+        Same logic as LinCa:
         - Leading first_enhance steps: 0, 1, 2
         - Then every interval: first_enhance, first_enhance+interval, ...
         """
@@ -476,7 +476,7 @@ def create_dataloader(
 
 if __name__ == "__main__":
     # Test the dataset
-    data_dir = "/root/autodl-tmp/linca_data/data/cache_data"
+    data_dir = "./cache_data"
     
     print("Testing MemoryEfficientCacheDataset...")
     dataset = MemoryEfficientCacheDataset(

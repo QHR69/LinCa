@@ -1,23 +1,23 @@
 """
 Multi-GPU inference using the ORIGINAL Qwen Image Edit model (no cache acceleration).
 
-所有 50 步全部做完整 transformer forward，相当于原始模型推理。
-输出格式、seed 规则与 sample_learned_ddp.py 完全一致，可直接做质量对比。
+Every one of the 50 steps runs a full transformer forward, matching plain inference.
+Output naming and seeding match sample_learned_ddp.py, so results compare directly.
 
-特性:
-  - 无缓存：设 first_enhance = num_steps，使所有步均为 full compute
-  - 断点续跑：若输出文件已存在则自动跳过
-  - 计时：统计纯推理时间（不含模型加载），汇总后输出平均单张耗时
-  - seed 完全对齐：seed = base_seed + item["idx"]（与 sample_learned_ddp.py 一致）
+Features:
+  - No caching: first_enhance = num_steps makes every step a full compute
+  - Resumable: existing output files are skipped
+  - Timing covers inference only, excluding model load, and reports the per-image mean
+  - Seeds match sample_learned_ddp.py exactly: seed = base_seed + item["idx"]
 
 Usage:
-    # 单卡
+    # Single GPU
     CUDA_VISIBLE_DEVICES=0 python sample_baseline_ddp.py \
         --dataset_path ./data/gedit_bench \
         --output_dir samples/qwen_edit_1212_baseline_50step \
         --seed 0
 
-    # 多卡
+    # Multiple GPUs
     CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 --master_port=29602 \
         sample_baseline_ddp.py \
         --dataset_path ./data/gedit_bench \
@@ -38,14 +38,9 @@ from tqdm import tqdm
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
-_LINCA_ROOT = _SCRIPT_DIR.parent.parent.parent
-_PIPELINE_BASE = _LINCA_ROOT / "freqca_qwen"  # pipeline dependency under the LinCA root
-if str(_PIPELINE_BASE) not in sys.path:
-    sys.path.insert(1, str(_PIPELINE_BASE))
-
 from pipeline import QwenImageEditPipeline
 
-# 清除 pipeline 写入的 cache_functions，改用本地版本（提供 cache_init 等函数）
+# Drop the cache_functions the pipeline registered; the local copy supplies cache_init and friends
 _to_remove = [k for k in list(sys.modules) if k == "cache_functions" or k.startswith("cache_functions.")]
 for _k in _to_remove:
     del sys.modules[_k]
@@ -59,9 +54,9 @@ sys.modules["cache_functions"] = _cf_mod
 _spec.loader.exec_module(_cf_mod)
 cache_init                  = _cf_mod.cache_init
 pipeline_with_learned_cache = _cf_mod.pipeline_with_learned_cache
-# 注意：pipeline_with_learned_cache 只替换 transformer.forward 以支持 cache_dic/current 参数，
-# 不传 checkpoint_path 所以不加载任何预测器。
-# 再结合 first_enhance=num_steps + decompose_method='None'，所有步均全量计算，等同于原始模型。
+# pipeline_with_learned_cache only swaps transformer.forward so it accepts the
+# cache_dic/current arguments. Without checkpoint_path no predictor is loaded.
+# With first_enhance=num_steps and decompose_method='None', every step computes in full.
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +82,7 @@ def _build_dataset(base_path: Path):
         img = Image.open(img_path).convert("RGB")
         orig_w, orig_h = img.size
         items.append({
-            "idx": i,               # 全局行号，决定 seed（不受分卡影响）
+            "idx": i,               # global row index, which fixes the seed regardless of sharding
             "task_type": task_type,
             "instruction": instruction,
             "instruction_language": language,
@@ -118,24 +113,24 @@ def main():
     parser.add_argument('--limit',          type=int, default=None)
     args = parser.parse_args()
 
-    # ---- DDP 初始化 ----
+    # ---- DDP setup ----
     dist.init_process_group("nccl")
     rank       = dist.get_rank()
     world_size = dist.get_world_size()
     device     = f"cuda:{rank}"
     torch.cuda.set_device(rank)
 
-    # ---- 加载 pipeline（原始模型，不加任何 cache wrapper） ----
+    # ---- Load the pipeline unmodified, with no cache wrapper ----
     if rank == 0:
         print(f">>> Loading original Qwen pipeline (no cache) ...")
     pipe = QwenImageEditPipeline.from_pretrained(
         args.model_path, torch_dtype=torch.bfloat16,
     ).to(device)
-    # 替换 transformer.forward 以支持 cache_dic/current 参数（不传 checkpoint，不加载预测器）
-    # 配合 first_enhance=num_steps + decompose_method='None'：全部 50 步均为 full compute
+    # Swap transformer.forward so it accepts cache_dic/current; no checkpoint, no predictor
+    # With first_enhance=num_steps and decompose_method='None', all 50 steps compute in full
     pipe = pipeline_with_learned_cache(pipe)
 
-    # ---- 加载数据集 ----
+    # ---- Load the dataset ----
     base_path = Path(args.dataset_path)
     dataset   = _build_dataset(base_path)
     if args.limit:
@@ -147,7 +142,7 @@ def main():
     end      = min(start + per_proc, total)
     local_dataset = dataset[start:end]
 
-    # ---- 创建Output directory（rank 0 负责） ----
+    # ---- Create the output directory (rank 0 only) ----
     if rank == 0:
         os.makedirs(args.output_dir, exist_ok=True)
         for tt in set(d["task_type"] for d in dataset):
@@ -155,9 +150,9 @@ def main():
                 (Path(args.output_dir) / "fullset" / tt / lang).mkdir(parents=True, exist_ok=True)
     dist.barrier()
 
-    # ---- cache_dic 参数：禁用缓存，等效于原始模型 50 步全量推理 ----
-    # first_enhance = num_steps 使所有步均满足 step < first_enhance，
-    # cal_type 将每步标记为 'full'，transformer 执行完整 forward，无任何跳步。
+    # ---- Cache disabled, which reproduces plain 50-step inference ----
+    # first_enhance = num_steps makes every step satisfy step < first_enhance, so
+    # cal_type marks them all 'full' and the transformer never skips one.
     cache_kwargs = {
         'num_steps':       args.num_steps,
         'test_FLOPs':      False,
@@ -165,14 +160,14 @@ def main():
         'interval':        1,
         'max_order':       0,
         'min_order':       0,
-        'first_enhance':   args.num_steps,   # ← 关键：覆盖全部步，全部 type='full'
+        'first_enhance':   args.num_steps,   # covers every step, so all are type='full'
         'forecast_method': 'hermite',
         'decompose_method':'None',
         'use_z_cache':     False,
         'forecast_steps':  1,
     }
 
-    # ---- 推理循环 ----
+    # ---- Inference loop ----
     times     = []
     skipped   = 0
     processed = 0
@@ -184,19 +179,19 @@ def main():
             / f"{item['key']}.png"
         )
 
-        # ---- 断点续跑：已存在则跳过 ----
+        # ---- Resume: skip anything already on disk ----
         if save_path.exists():
             skipped += 1
             continue
 
-        # seed = base_seed + 全局行号（与 sample_learned_ddp.py 完全一致）
+        # seed = base_seed + global row index, matching sample_learned_ddp.py
         seed      = args.seed + item["idx"]
         generator = torch.Generator(device).manual_seed(seed)
         cache_dic, current = cache_init(cache_kwargs)
 
         img = item["input_image"].resize((args.width, args.height), Image.Resampling.LANCZOS)
 
-        # ---- 计时：仅计算推理时间 ----
+        # ---- Timing: inference only ----
         torch.cuda.synchronize()
         t0 = time.perf_counter()
 
@@ -221,12 +216,12 @@ def main():
         t1 = time.perf_counter()
         times.append(t1 - t0)
 
-        # ---- 输出 resize 回原图尺寸 ----
+        # ---- Resize the output back to the source resolution ----
         orig_w, orig_h = item.get("orig_size", (args.width, args.height))
         if image.size != (orig_w, orig_h):
             image = image.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
 
-        # ---- 保存 ----
+        # ---- Save ----
         save_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(save_path, quality=95)
         processed += 1
@@ -235,7 +230,7 @@ def main():
         if (i + 1) % 5 == 0:
             torch.cuda.empty_cache()
 
-    # ---- 跨卡汇总时间 ----
+    # ---- Reduce timings across ranks ----
     n_proc = len(times)
     t_proc = sum(times)
     stats  = torch.tensor([t_proc, float(n_proc)], dtype=torch.float64, device=device)
@@ -247,9 +242,9 @@ def main():
         total_n = int(stats[1].item())
         print(f"\n>>> Done! total={total}, processed={total_n}, skipped(all ranks)={total - total_n}")
         if total_n > 0:
-            print(f">>> 平均单张推理时间: {total_t / total_n:.3f}s  (合计 {total_n} 张，总耗时 {total_t:.1f}s)")
+            print(f">>> Mean inference time: {total_t / total_n:.3f}s per image  ({total_n} images, {total_t:.1f}s total)")
         else:
-            print(">>> 所有图片均已存在，无新生成（全部跳过）")
+            print(">>> Every image already exists; nothing to generate.")
 
     dist.destroy_process_group()
 

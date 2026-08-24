@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Introduction-figure script — flux_v4_multi_stage
+Introduction-figure script — LinCa multi-stage
 
 - Panel 1: dynamics across denoising — 1-1 trajectory, 1-2 multi-stage, 1-3 step deltas
 - Panel 3: 3 raw vs 3 decomposed plots (depends on split_dims and the checkpoint)
@@ -370,7 +370,7 @@ def fig_feature_pca_trajectories(feats, out_dir: str, n_select: int = 20):
 # ========== Model loading ==========
 
 def load_model(checkpoint_path: str, split_dims: List[int], device: str = 'cuda') -> LearnedDecompositionPredictor:
-    """Load a flux_v4_multi_stage LearnedDecompositionPredictor"""
+    """Load a LinCa multi-stage LearnedDecompositionPredictor"""
     # Try to read the config json written by save_pretrained
     config_path = checkpoint_path.replace('.pt', '_config.json')
     if not config_path.endswith('_config.json'):
@@ -476,7 +476,7 @@ def process_one_prompt(
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate Introduction figures (flux_v4_multi_stage)')
+    parser = argparse.ArgumentParser(description='Generate Introduction figures (LinCa multi-stage)')
     parser.add_argument('--cache_dir', type=str,
                         default='./cache_data/flux',
                         help='Cache data root (prompt_xxx/step_xx.pt)')

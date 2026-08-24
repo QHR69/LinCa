@@ -395,7 +395,7 @@ def validate(
     device: torch.device,
     z_loss_weight: float = 0.1,
 ) -> Dict[str, float]:
-    """两阶段验证"""
+    """Validate both predictor stages."""
     predictor_stage1.eval()
     predictor_stage2.eval()
     
@@ -469,122 +469,16 @@ def validate(
     }
 
 
-def _thorough_cleanup_pipeline(pipe):
-    """彻底清理 pipeline"""
-    if pipe is None:
-        return
-    try:
-        pipe.to('cpu')
-    except Exception:
-        pass
-    del pipe
-    gc.collect()
-    gc.collect()
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-        torch.cuda.synchronize()
-    try:
-        libc = ctypes.CDLL("libc.so.6")
-        libc.malloc_trim(0)
-    except Exception:
-        pass
-    gc.collect()
-    print(">>> Pipeline fully released")
-
-
 @torch.no_grad()
-def eval_generate_images(
-    predictor_stage1: LearnedDecompositionPredictor,
-    predictor_stage2: LearnedDecompositionPredictor,
-    eval_prompts_file: str,
-    output_dir: str,
-    model_path: str,
-    interval: int = 6,
-    device: str = 'cuda',
-    epoch: int = 0,
-    base_seed: int = 0,
-) -> List[Image.Image]:
-    """在 eval prompts 上生成图片（两阶段版本）"""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    if current_dir not in sys.path:
-        sys.path.insert(0, current_dir)
-    
-    from pipeline.pipeline_qwenimage import QwenImagePipeline
-    from cache_functions import cache_init, set_predictor_two_stage, get_predictor, pipeline_with_learned_cache
-    
-    predictor_stage1.eval()
-    predictor_stage2.eval()
-    if next(predictor_stage1.parameters()).device.type != device.split(':')[0]:
-        predictor_stage1 = predictor_stage1.to(device)
-        predictor_stage2 = predictor_stage2.to(device)
-    
-    set_predictor_two_stage(predictor_stage1, predictor_stage2)
-    
-    with open(eval_prompts_file, 'r', encoding='utf-8') as f:
-        prompts = [line.strip() for line in f if line.strip()]
-    
-    print(f"\n>>> Eval: generating {len(prompts)} images (two-stage)...")
-    aggressive_memory_cleanup()
-    
-    pipe = QwenImagePipeline.from_pretrained(
-        model_path,
-        torch_dtype=torch.bfloat16,
-    ).to(device)
-    pipe = pipeline_with_learned_cache(pipe)
-    
-    cache_kwargs = {
-        'num_steps': 50,
-        'test_FLOPs': False,
-        'monitor_gpu_usage': False,
-        'interval': interval,
-        'max_order': 2,
-        'min_order': 0,
-        'first_enhance': 3,
-        'forecast_method': 'hermite',
-        'decompose_method': 'learned',
-        'use_z_cache': False,
-        'forecast_steps': 5,
-        'z2_forecast_method': 'lagrange',
-    }
-    
-    eval_output_dir = os.path.join(output_dir, f'eval_epoch_{epoch}')
-    os.makedirs(eval_output_dir, exist_ok=True)
-    
-    images = []
-    for i, prompt in enumerate(prompts):
-        seed = base_seed + i
-        generator = torch.Generator(device).manual_seed(seed)
-        cache_dic, current = cache_init(cache_kwargs)
-        
-        with torch.inference_mode():
-            result = pipe(
-                prompt=prompt,
-                negative_prompt=" ",
-                height=1328,
-                width=1328,
-                num_inference_steps=50,
-                guidance_scale=1.0,
-                true_cfg_scale=4.0,
-                generator=generator,
-                max_sequence_length=512,
-                cache_dic=cache_dic,
-                current=current,
-            )
-            image = result.images[0]
-        
-        output_path = os.path.join(eval_output_dir, f'eval_{i:02d}.jpg')
-        image.save(output_path, quality=95)
-        images.append(image)
-        print(f"  [{i+1}/{len(prompts)}] {prompt[:40]}...")
-        
-        del result, generator, cache_dic, current, image
-        if (i + 1) % 2 == 0:
-            torch.cuda.empty_cache()
-    
-    _thorough_cleanup_pipeline(pipe)
-    pipe = None
-    return images
+def eval_generate_images(*args, **kwargs) -> List[Image.Image]:
+    """No-op placeholder.
+
+    Mid-training sample previews are not wired up for this backbone: rendering a
+    sample would need the full generation pipeline loaded alongside the trainer.
+    Train the predictor here, then sample with the dedicated script.
+    """
+    print("Skipping mid-training sample generation (not supported for this backbone).")
+    return []
 
 
 def save_checkpoint(
@@ -597,7 +491,7 @@ def save_checkpoint(
     loss_s2: float,
     save_path: str,
 ):
-    """保存两阶段检查点"""
+    """Save a checkpoint holding both predictor stages."""
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     torch.save({
         'epoch': epoch,
@@ -624,7 +518,7 @@ def save_predictor_snapshot(
     output_dir: str,
     epoch: int,
 ):
-    """保存某个 epoch 的两个 predictor 权重（含 config）"""
+    """Save both predictor stages for one epoch, each with its config."""
     os.makedirs(output_dir, exist_ok=True)
     path_s1 = os.path.join(output_dir, f'predictor_stage1_epoch_{epoch:03d}.pt')
     path_s2 = os.path.join(output_dir, f'predictor_stage2_epoch_{epoch:03d}.pt')
@@ -643,7 +537,7 @@ def load_checkpoint(
     load_path: str,
     device: torch.device,
 ) -> int:
-    """加载两阶段检查点"""
+    """Load a checkpoint holding both predictor stages."""
     checkpoint = torch.load(load_path, map_location=device)
     predictor_stage1.load_state_dict(checkpoint['predictor_stage1'])
     predictor_stage2.load_state_dict(checkpoint['predictor_stage2'])
@@ -653,7 +547,7 @@ def load_checkpoint(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train two-stage invertible decomposition network (v4)")
+    parser = argparse.ArgumentParser(description="Train two-stage invertible decomposition network")
     
     parser.add_argument('--data_dir', type=str, default='./cache_data/wan')
     parser.add_argument('--train_prompts', type=str, default='0-946')
@@ -688,7 +582,7 @@ def main():
     parser.add_argument('--exp_name', type=str, default=None)
     parser.add_argument('--log_interval', type=int, default=1)
     parser.add_argument('--save_interval', type=int, default=5)
-    parser.add_argument('--wandb_project', type=str, default='linca_v4_two_stage')
+    parser.add_argument('--wandb_project', type=str, default='linca_two_stage')
     parser.add_argument('--wandb_key', type=str, default=None)
     parser.add_argument('--no_wandb', action='store_true')
     
@@ -720,7 +614,7 @@ def main():
     print(f"\n{'='*60}")
     print(f"Two-stage training: Stage1=0-24, Stage2=25-49")
     print(f"Early stopping B: stop only after both stages stall for {args.early_stop_patience} epochs")
-    print(f"数据划分: 训练 {len(train_pool)}, 验证 {len(val_indices)}")
+    print(f"Data split: {len(train_pool)} train, {len(val_indices)} val")
     print(f"{'='*60}\n")
     
     set_seed(args.seed)
@@ -764,14 +658,14 @@ def main():
     )
     
     if args.exp_name is None:
-        args.exp_name = "two_stage_v4"
+        args.exp_name = "two_stage"
     output_dir = os.path.join(args.output_dir, args.wandb_project, args.exp_name)
     os.makedirs(output_dir, exist_ok=True)
     
     with open(os.path.join(output_dir, 'config.json'), 'w') as f:
         json.dump(vars(args), f, indent=2)
 
-    # 保存初始化权重（epoch 0）
+    # Save the initial weights as epoch 0
     if start_epoch == 0:
         save_predictor_snapshot(
             predictor_stage1,
@@ -888,7 +782,7 @@ def main():
                 os.path.join(output_dir, f'checkpoint_epoch_{epoch+1}.pt')
             )
 
-        # 每个 epoch 结束都保存两个 predictor 的单独权重
+        # Save each predictor stage separately at the end of every epoch
         save_predictor_snapshot(
             predictor_stage1,
             predictor_stage2,

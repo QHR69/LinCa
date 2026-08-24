@@ -137,34 +137,34 @@ def main():
     md_lines.append("")
 
     # Each model variant
-    md_lines.append("## flux_v4 FLOPs (Ours - Learned Invertible Decomposition)")
+    md_lines.append("## LinCa FLOPs (Ours - Learned Invertible Decomposition)")
     md_lines.append("")
 
     for m in sorted(models, key=lambda x: (x['num_blocks'], x['hidden_dim'])):
         key = (m['num_blocks'], m['hidden_dim'])
         inv_flops, inv_params = arch_flops[key]
 
-        v4_full = FLUX_FULL_STEP_TFLOPS + inv_flops
-        v4_cache = FREQCA_CACHE_STEP_TFLOPS + inv_flops
+        linca_full = FLUX_FULL_STEP_TFLOPS + inv_flops
+        linca_cache = FREQCA_CACHE_STEP_TFLOPS + inv_flops
 
         md_lines.append(f"### blocks={m['num_blocks']}, hidden={m['hidden_dim']}")
         md_lines.append("")
         md_lines.append(f"- InvertibleNet FLOPs (forward = inverse): **{inv_flops:.4f} TFLOPs**")
         md_lines.append(f"- InvertibleNet Params: **{inv_params / 1e6:.2f} M**")
-        md_lines.append(f"- Full step cost: {FLUX_FULL_STEP_TFLOPS} + {inv_flops:.4f} = **{v4_full:.4f} TFLOPs**")
-        md_lines.append(f"- Cache step cost: {FREQCA_CACHE_STEP_TFLOPS} + {inv_flops:.4f} = **{v4_cache:.4f} TFLOPs**")
+        md_lines.append(f"- Full step cost: {FLUX_FULL_STEP_TFLOPS} + {inv_flops:.4f} = **{linca_full:.4f} TFLOPs**")
+        md_lines.append(f"- Cache step cost: {FREQCA_CACHE_STEP_TFLOPS} + {inv_flops:.4f} = **{linca_cache:.4f} TFLOPs**")
         md_lines.append("")
         md_lines.append("| interval | full | cache | Total FLOPs (T) | Speedup | vs Freqca |")
         md_lines.append("|----------|------|-------|----------------|---------|-----------|")
 
         for interval in INTERVALS:
             full, cache = count_steps(interval)
-            total_v4 = full * v4_full + cache * v4_cache
+            total_linca = full * linca_full + cache * linca_cache
             total_freqca = full * FLUX_FULL_STEP_TFLOPS + cache * FREQCA_CACHE_STEP_TFLOPS
-            speedup = baseline / total_v4
-            overhead = total_v4 - total_freqca
+            speedup = baseline / total_linca
+            overhead = total_linca - total_freqca
             md_lines.append(
-                f"| {interval} | {full} | {cache} | {total_v4:.2f} | {speedup:.2f}x | +{overhead:.2f}T |"
+                f"| {interval} | {full} | {cache} | {total_linca:.2f} | {speedup:.2f}x | +{overhead:.2f}T |"
             )
 
         md_lines.append(f"| baseline | {NUM_STEPS} | 0 | {baseline:.2f} | 1.00x | - |")
@@ -201,12 +201,12 @@ def main():
             continue
         seen_keys.add(key)
         inv_flops, inv_params = arch_flops[key]
-        v4_full = FLUX_FULL_STEP_TFLOPS + inv_flops
-        v4_cache = FREQCA_CACHE_STEP_TFLOPS + inv_flops
+        linca_full = FLUX_FULL_STEP_TFLOPS + inv_flops
+        linca_cache = FREQCA_CACHE_STEP_TFLOPS + inv_flops
         row = f"| Ours (b={key[0]},h={key[1]}) | {inv_params/1e6:.2f} | {inv_flops:.4f}"
         for iv in [3, 7, 10]:
             full, cache = count_steps(iv)
-            total = full * v4_full + cache * v4_cache
+            total = full * linca_full + cache * linca_cache
             row += f" | {total:.2f}"
         row += " |"
         md_lines.append(row)

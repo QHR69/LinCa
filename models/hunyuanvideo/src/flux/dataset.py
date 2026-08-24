@@ -11,7 +11,7 @@ Data format:
         └── ...
 
 Training sample construction:
-    给定interval,构造预测样本:
+    Given an interval, build the prediction samples:
     - Full-compute steps: 0, 1, 2, then every interval after first_enhance
     - Prediction steps: every remaining step
 
@@ -57,7 +57,7 @@ class CacheDataset(Dataset):
             intervals: list of intervals to train on
             first_enhance: number of leading full-compute steps
             num_steps: total number of steps
-            prompt_indices: 要使用的prompt索引,None表示全部
+            prompt_indices: which prompts to use; None means all of them
             max_cache_points: max history points used at prediction time
         """
         self.data_dir = data_dir
@@ -93,15 +93,15 @@ class CacheDataset(Dataset):
 
     def _get_active_steps(self, interval: int) -> List[int]:
         """
-        获取给定interval下的激活步(full计算的步)
+        Return the active steps for an interval, i.e. those computed in full.
 
-        逻辑与FreqCa一致:
+        Matches FreqCa's rule:
         - Leading first_enhance steps: 0, 1, 2
         - Then every interval: first_enhance, first_enhance+interval, ...
         """
         active = list(range(self.first_enhance))  # [0, 1, 2]
 
-        # 从first_enhance开始,每interval步
+        # Starting at first_enhance, every interval steps
         step = self.first_enhance
         while step < self.num_steps:
             if step not in active:
@@ -123,7 +123,7 @@ class CacheDataset(Dataset):
         if not available:
             return []
 
-        # 按距离排序(最近的在前)
+        # Sort by distance, nearest first
         available.sort(key=lambda s: target_step - s)
 
         # Return a list of (distance, step) pairs
@@ -137,7 +137,7 @@ class CacheDataset(Dataset):
             for interval in self.intervals:
                 active_steps = self._get_active_steps(interval)
 
-                # 对于每个非激活步,创建一个样本
+                # One sample per non-active step
                 for target_step in range(self.num_steps):
                     if target_step in active_steps:
                         continue  # skip full-compute steps
@@ -217,8 +217,8 @@ def collate_fn(batch: List[Dict]) -> Dict:
     """
     Custom collate function
 
-    由于seq_len固定(6889),可以直接stack
-    但cache_features数量可能不同,需要特殊处理
+    seq_len is fixed at 6889, so these stack directly.
+    The number of cache_features can differ, which needs handling separately.
     """
     target_features = torch.stack([item['target_feature'] for item in batch])
 
@@ -258,12 +258,12 @@ class MemoryEfficientCacheDataset(Dataset):
     """
     Memory-efficient dataset (supports random interval sampling)
 
-    不预加载所有数据,而是按需加载
+    Loads on demand rather than holding everything in memory.
     Speed up via a precomputed index
 
     Supports two modes:
     - random_interval=False: pre-build samples per interval (original behaviour)
-    - random_interval=True: 每次取样时随机选择interval (减少样本量,增加多样性)
+    - random_interval=True draws an interval per sample, which trades sample count for diversity
     """
 
     def __init__(
@@ -332,7 +332,7 @@ class MemoryEfficientCacheDataset(Dataset):
         samples = []
 
         if self.random_interval:
-            # Random-interval mode: 只为每个(prompt, target_step)创建一个样本
+            # Random-interval mode: one sample per (prompt, target_step) pair
             # interval is sampled randomly inside __getitem__
             # Use the smallest interval to decide which target_steps are valid
             min_interval = min(self.intervals)
@@ -343,7 +343,7 @@ class MemoryEfficientCacheDataset(Dataset):
                     if target_step in active_steps_min:
                         continue
 
-                    # 存储时不包含interval和cache_info,这些在__getitem__时动态计算
+                    # interval and cache_info are computed in __getitem__ rather than stored
                     samples.append((
                         prompt_idx,
                         target_step,
@@ -362,7 +362,7 @@ class MemoryEfficientCacheDataset(Dataset):
                         if len(cache_info) == 0:
                             continue
 
-                        # 只存储索引,不存储数据
+                        # Store indices only, not the data itself
                         samples.append((
                             prompt_idx,
                             interval,
@@ -386,16 +386,16 @@ class MemoryEfficientCacheDataset(Dataset):
             # Compute active_steps and cache_info on the fly
             active_steps = self._get_active_steps(interval)
 
-            # 如果target_step在当前interval下是active step,随机选择另一个interval
+            # If target_step is active under this interval, draw a different one
             attempts = 0
             while target_step in active_steps and attempts < len(self.intervals):
                 interval = random.choice(self.intervals)
                 active_steps = self._get_active_steps(interval)
                 attempts += 1
 
-            # 如果所有interval都不行,使用最小interval的fallback
+            # If no interval works, fall back to the smallest
             if target_step in active_steps:
-                # 这种情况理论上不应该发生,但作为保护
+                # Should not be reachable, but guard anyway
                 interval = min(self.intervals)
                 active_steps = self._get_active_steps(interval)
 
@@ -478,7 +478,7 @@ def create_dataloader(
 
     Args:
         random_interval: Whether to resample interval on every draw
-                        True: 减少样本量,增加interval多样性 (推荐用于训练)
+                        True trades sample count for interval diversity, which is what we train with.
                         False: create independent samples per interval (original behaviour)
     """
 

@@ -1,17 +1,17 @@
 """
-Training script for qwen_edit LinCA two-stage invertible decomposition network
+Training script for qwen_edit LinCa two-stage invertible decomposition network
 
-与 qwen_image 完全一致的:
-- loss 设计 (compute_loss)
-- interval 设计
-- cond/uncond 都做训练
-- 两阶段 Stage1=0-24, Stage2=25-49
+Identical to the qwen_image trainer:
+- the loss (compute_loss)
+- the interval scheme
+- training on both the cond and uncond streams
+- the two stages, steps 0-24 and 25-49
 - Early Stopping B
 - wandb logging
 
-差异:
-- 数据: sample_XXXX, 22 val + 180 train + 11 display
-- eval: 11 张展示图 (原图|生成图 concat)
+Differences from the qwen_image trainer:
+- data: sample_XXXX, 180 train + 22 val + 11 display
+- eval: 11 display images, source and generated side by side
 """
 
 import os
@@ -32,12 +32,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-# 确保当前目录优先 (cache_functions 含 set_predictor_two_stage)，freqca_qwen 用于 pipeline
+# Keep this directory first on sys.path: the local cache_functions provides
+# set_predictor_two_stage, which the base package does not.
 _SCRIPT_DIR = Path(__file__).resolve().parent
-_LINCA_ROOT = _SCRIPT_DIR.parent.parent.parent
-_PIPELINE_BASE = _LINCA_ROOT / "freqca_qwen"  # pipeline dependency under the LinCA root
-if str(_PIPELINE_BASE) not in sys.path:
-    sys.path.insert(0, str(_PIPELINE_BASE))
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
@@ -96,7 +93,7 @@ def compute_loss(
     intervals: torch.Tensor,
     z_loss_weight: float = 0.1,
 ) -> Dict[str, torch.Tensor]:
-    """计算训练损失（与 qwen_image 完全一致）"""
+    """Compute the training loss (identical to the qwen_image trainer)."""
     batch_size = target_features.shape[0]
     device = target_features.device
 
@@ -197,7 +194,7 @@ def train_epoch(
     use_amp: bool = False,
     z_loss_weight: float = 0.1,
 ) -> Dict[str, float]:
-    """Run one two-stage training epoch（与 qwen_image 完全一致）"""
+    """Run one two-stage training epoch (identical to the qwen_image trainer)."""
     predictor_stage1.train()
     predictor_stage2.train()
 
@@ -398,7 +395,7 @@ def validate(
     device: torch.device,
     z_loss_weight: float = 0.1,
 ) -> Dict[str, float]:
-    """两阶段验证（与 qwen_image 完全一致）"""
+    """Validate both predictor stages (identical to the qwen_image trainer)."""
     predictor_stage1.eval()
     predictor_stage2.eval()
 
@@ -500,7 +497,7 @@ def _load_single_display_item(
     cache_data_dir: str,
     sample_idx: int,
 ) -> Dict:
-    """从 cache metadata 和 dataset 加载单个展示样本"""
+    """Load one display sample from the cache metadata and the dataset."""
     idx_path = os.path.join(cache_data_dir, 'index.json')
     with open(idx_path, 'r') as f:
         idx_data = json.load(f)
@@ -548,13 +545,14 @@ def eval_generate_images_edit(
     epoch: int = 0,
     base_seed: int = 0,
 ) -> List[Image.Image]:
-    """生成 11 张展示图 (原图|生成图 concat)，与 qwen_image eval 对应"""
+    """Render the 11 display images as source|generated pairs, mirroring the qwen_image eval."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     if current_dir not in sys.path:
         sys.path.insert(0, current_dir)
-    # 先导入 pipeline（会临时把 freqca_qwen 加入 path 并可能缓存其 cache_functions）
+    # Import the pipeline first, then re-resolve cache_functions from this
+    # directory: importing the pipeline can leave a different cache_functions
+    # cached in sys.modules, and only the local one has set_predictor_two_stage.
     from pipeline import QwenImageEditPipeline
-    # 必须用本地的 cache_functions（含 set_predictor_two_stage）：pipeline 加载时会把 freqca 的 cache_functions 缓存在 sys.modules，此处清除后从当前目录重新导入
     to_remove = [k for k in sys.modules if k == "cache_functions" or k.startswith("cache_functions.")]
     for k in to_remove:
         del sys.modules[k]
@@ -624,7 +622,7 @@ def eval_generate_images_edit(
             )
             gen_img = result.images[0]
 
-        # 原图|生成图 横向 concat
+        # Concatenate source and generated images side by side
         orig_w, orig_h = img.size
         gen_w, gen_h = gen_img.size
         concat_w = orig_w + gen_w
@@ -694,7 +692,7 @@ def load_checkpoint(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train qwen_edit two-stage LinCA invertible decomposition network")
+    parser = argparse.ArgumentParser(description="Train qwen_edit two-stage LinCa invertible decomposition network")
 
     parser.add_argument('--cache_data_dir', type=str, default='./cache_data/qwen_edit')
     parser.add_argument('--dataset_path', type=str, default='./data/gedit_bench')
@@ -739,11 +737,11 @@ def main():
     setup_training_optimizations()
     intervals = [int(x) for x in args.intervals.split(',')]
 
-    # 数据划分
+    # Data split
     val_indices, display_indices, train_indices = build_splits(args.cache_data_dir)
 
     if args.exp_name is None:
-        args.exp_name = "qwen_edit_two_stage_v4"
+        args.exp_name = "qwen_edit_two_stage"
     output_dir = os.path.join(args.output_dir, args.wandb_project, args.exp_name)
     os.makedirs(output_dir, exist_ok=True)
     save_splits(output_dir, val_indices, display_indices, train_indices)
@@ -751,7 +749,7 @@ def main():
     print(f"\n{'='*60}")
     print(f"Two-stage training: Stage1=0-24, Stage2=25-49")
     print(f"Early stopping B: stop only after both stages stall for {args.early_stop_patience} epochs")
-    print(f"数据划分: 训练 {len(train_indices)}, 验证 {len(val_indices)}, 展示 {len(display_indices)}")
+    print(f"Data split: {len(train_indices)} train, {len(val_indices)} val, {len(display_indices)} display")
     print(f"{'='*60}\n")
 
     set_seed(args.seed)

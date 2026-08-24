@@ -1,56 +1,45 @@
-# qwen_edit LinCA Cache 数据生成
+# Qwen-Image-Edit cache-feature extraction
 
-生成 202 条训练样本的 cond/uncond cache，用于 LinCA 训练。
+Produces the cond/uncond feature cache for 202 training samples, which
+`qwen_image_edit_linca_two_stage/train.py` then learns to predict.
 
-## 环境
+## What it does
 
-需使用 `qwen_image` conda 环境：
-```bash
-conda activate qwen_image
-```
+- **Source**: GEdit-Bench, every 6th sample (indices 0, 6, 12, ..., 1206) — 202 in total
+- **Resolution**: everything resized to 1024×1024
+- **Seed**: `base_seed + original_idx`, matching `sample_edit_single.py` so the
+  generated edits line up with accelerated ones for quality comparison
+- **Cached tensor**: the 3072-dim activation after `norm_out` and before `proj_out`,
+  latent part only (`[:, :4096]`)
+- **Sampling config**: `num_steps=50`, `negative_prompt=" "`, `true_cfg_scale=4.0`,
+  `guidance_scale=1.0`, `max_sequence_length=512`
 
-## 数据与流程
+GEdit-Bench is not redistributed here. Fetch it separately and point
+`--dataset_path` at it (default `./data/gedit_bench`).
 
-- **数据源**: `gedit_bench_numbered`，每隔 6 取 1（indices 0, 6, 12, ..., 1206）
-- **尺寸**: 统一 resize 到 1024×1024
-- **seed**: `base_seed + original_idx`（与 LinCA sample_edit 一致）
-- **Cache**: norm_out 后、proj_out 前 3072 维，仅 latent 部分 `[:, :4096]`
-- **超参**: num_steps=50, negative_prompt=" ", true_cfg_scale=4.0, guidance_scale=1.0, max_sequence_length=512
-
-## 输出
-
-- **Cache**: `./cache_data/qwen_edit/sample_XXXX/cond/step_XX.pt`, `uncond/step_XX.pt`
-- **编辑图**: 当前目录 `sample_XXXX.png`
-- **索引**: `index.json`
-
-## 运行
-
-### 单卡（测试 1 条）
+## Usage
 
 ```bash
 cd models/qwen_image_edit/qwen_edit_data
-conda activate qwen_image
+
+# one sample, to confirm the setup works
 python generate_cache_data_edit.py --limit 1
-```
 
-### 多卡（202 条）
+# all 202 across 4 GPUs
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 \
+  generate_cache_data_edit.py --ddp
 
-```bash
-cd models/qwen_image_edit/qwen_edit_data
-conda activate qwen_image
-
-# 4 卡
-CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 generate_cache_data_edit.py --ddp
-
-# 或使用脚本（自动 conda activate + 检测 GPU 数）
+# same thing, with GPU count detected for you
 CUDA_VISIBLE_DEVICES=0,1,2,3 bash run_generate_cache_ddp.sh
 ```
 
-### 验证
+## Output
 
-```bash
-conda activate qwen_image
-python verify_cache_sample.py 0
-```
+- Features: `<cache_output_dir>/sample_XXXX/{cond,uncond}/step_XX.pt`, default
+  `--cache_output_dir ./cache_data/qwen_edit`
+- Edited images: `sample_XXXX.png` under `--image_output_dir`
+- `index.json`, which the training dataloader reads
 
-预期输出：cond/uncond shape `(4096, 3072)`，每样本约 2.4GB（50 步×cond+uncond），202 条约 473GB。
+Each cond/uncond tensor has shape `(4096, 3072)`. A sample costs roughly 2.4 GB across
+50 steps and both branches, so all 202 need on the order of 470 GB. Extract a subset
+first if disk is tight.

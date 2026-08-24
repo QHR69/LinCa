@@ -32,7 +32,7 @@ from wan.utils.utils import cache_video, cache_image, str2bool
 from wan.taylorseer.generates import wan_t2v_generate, wan_i2v_generate
 import types
 
-# 只保留文生图和文生视频示例（删除图生视频 i2v 示例）
+# Text-to-image and text-to-video examples only; the image-to-video ones are dropped
 EXAMPLE_PROMPT = {
     "t2v-1.3B": {
         "prompt": "Two anthropomorphic cats in comfy boxing gear and bright gloves fight intensely on a spotlighted stage.",
@@ -47,7 +47,7 @@ EXAMPLE_PROMPT = {
 
 def sanitize_filename(prompt):
     """
-    将 prompt 中的特殊字符去除，并将空格替换为下划线，生成安全的文件名。
+    Strip special characters from a prompt and turn spaces into underscores, giving a safe filename.
     """
     sanitized = re.sub(r'[^\w\- ]', '', prompt)
     sanitized = sanitized.replace(" ", "_")
@@ -96,8 +96,8 @@ def normalize_prompt_item(item):
 
 def load_prompts_from_file(file_path):
     """
-    根据文件后缀（txt/json）加载 prompt。
-    txt 文件中每一行作为一个 prompt；json 文件要求为列表格式，或者为 {"prompts": [...]}
+    Load prompts, dispatching on the .txt or .json extension.
+    A .txt file holds one prompt per line; a .json file must be a list or {"prompts": [...]}.
     """
     ext = os.path.splitext(file_path)[1].lower()
     prompts = []
@@ -131,12 +131,12 @@ def load_vbench_prompts(json_path, index_start=0, index_end=-1, prompt_stride=1)
     ]
 
 def _validate_args(args):
-    # 基本检查
+    # Basic validation
     assert args.ckpt_dir is not None, "Please specify the checkpoint directory."
-    # 仅支持文生图和文生视频任务
+    # Text-to-image and text-to-video only
     assert args.task in EXAMPLE_PROMPT, f"Unsupport task: {args.task}"
 
-    # 默认采样步数：图像生成为40，视频生成为50
+    # Default step count: 40 for images, 50 for video
     if args.sample_steps is None:
         args.sample_steps = 40 if "t2i" in args.task else 50
 
@@ -145,16 +145,16 @@ def _validate_args(args):
         if "t2i" not in args.task and args.size in ["832*480", "480*832"]:
             args.sample_shift = 3.0
 
-    # 默认帧数：文生图任务 frame_num=1，其他任务默认81帧
+    # Default frame count: 1 for text-to-image, 81 otherwise
     if args.frame_num is None:
         args.frame_num = 1 if "t2i" in args.task else 81
 
-    # 文生图任务 frame_num 必须为1
+    # Text-to-image requires frame_num == 1
     if "t2i" in args.task:
         assert args.frame_num == 1, f"Unsupport frame_num {args.frame_num} for task {args.task}"
 
     args.base_seed = args.base_seed if args.base_seed >= 0 else random.randint(0, sys.maxsize)
-    # 尺寸检查
+    # Resolution check
     assert args.size in SUPPORTED_SIZES[args.task], f"Unsupport size {args.size} for task {args.task}, supported sizes are: {', '.join(SUPPORTED_SIZES[args.task])}"
 
 def _parse_args():
@@ -218,7 +218,7 @@ def _parse_args():
         type=str,
         default=None,
         help="The file to save the generated image (for t2i) if prompt_file is not used.")
-    # 针对单个 prompt 的情况
+    # Single-prompt case
     parser.add_argument(
         "--prompt",
         type=str,
@@ -251,7 +251,7 @@ def _parse_args():
         type=int,
         default=-1,
         help="The seed to use for generation.")
-    # 针对文生视频任务，支持从文件中批量加载 prompt
+    # Text-to-video, optionally reading a batch of prompts from a file
     parser.add_argument(
         "--prompt_file",
         type=str,
@@ -321,7 +321,7 @@ def _parse_args():
     return args
 
 def _init_logging(rank):
-    # 日志设置
+    # Logging setup
     if rank == 0:
         logging.basicConfig(
             level=logging.INFO,
@@ -379,7 +379,7 @@ def generate(args):
         dist.broadcast_object_list(base_seed, src=0)
         args.base_seed = base_seed[0]
 
-    # 针对文生视频任务
+    # Text-to-video
     if args.task.startswith("t2v"):
         if args.vbench_json_path is not None:
             prompt_list = [None]
@@ -528,7 +528,7 @@ def generate(args):
                 break
         logging.info("Finished.")
 
-    # 针对文生图任务（只生成单个例子）
+    # Text-to-image, rendering a single example
     elif args.task.startswith("t2i"):
         if args.prompt is None:
             args.prompt = EXAMPLE_PROMPT[args.task]["prompt"]

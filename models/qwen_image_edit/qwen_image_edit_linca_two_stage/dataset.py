@@ -14,7 +14,7 @@ Data format:
     └── sample_0001/
         └── ...
 
-与 qwen_image 的差异: prompt_ -> sample_, seq_len 6889 -> 4096
+Differs from qwen_image: prompt_ becomes sample_, and seq_len is 4096 rather than 6889.
 """
 
 import os
@@ -64,8 +64,8 @@ def collate_fn(batch: List[Dict]) -> Dict:
 
 class MemoryEfficientCacheDataset(Dataset):
     """
-    内存高效版本的数据集 (qwen_edit: sample_XXXX, seq_len=4096)
-    支持 interval 随机采样，cond/uncond 都做训练
+    Memory-efficient dataset for qwen_edit: sample_XXXX directories, seq_len 4096.
+    Supports random interval sampling and trains on both the cond and uncond streams.
     """
 
     def __init__(
@@ -89,7 +89,7 @@ class MemoryEfficientCacheDataset(Dataset):
         self.subsample_seq = subsample_seq
         self.random_interval = random_interval
 
-        # 扫描所有 sample 目录 (qwen_edit 用 sample_ 前缀)
+        # Scan the sample directories, which qwen_edit names with a sample_ prefix
         all_samples = sorted([
             d for d in os.listdir(data_dir)
             if d.startswith('sample_') and os.path.isdir(os.path.join(data_dir, d))

@@ -1,16 +1,16 @@
 """
 Multi-GPU inference for qwen_edit 1212 full with two-stage learned cache.
 
-特性:
-  - 断点续跑：若输出文件已存在则自动跳过，支持中断后继续
-  - 计时：统计纯推理时间（不含模型加载），汇总后输出平均单张耗时
+Features:
+  - Resumable: existing output files are skipped, so an interrupted run can continue
+  - Timing covers inference only, excluding model load, and reports the per-image mean
 
 Usage:
-    # 单卡
+    # Single GPU
     CUDA_VISIBLE_DEVICES=0 python sample_learned_ddp.py \
         --checkpoint_dir <ckpt.pt> --dataset_path <path> --output_dir <out>
 
-    # 多卡
+    # Multiple GPUs
     CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --nproc_per_node=4 --master_port=29601 \
         sample_learned_ddp.py \
         --checkpoint_dir ./checkpoints/qwen-image-edit/\
@@ -35,14 +35,9 @@ from tqdm import tqdm
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
-_LINCA_ROOT = _SCRIPT_DIR.parent.parent.parent
-_PIPELINE_BASE = _LINCA_ROOT / "freqca_qwen"  # pipeline dependency under the LinCA root
-if str(_PIPELINE_BASE) not in sys.path:
-    sys.path.insert(1, str(_PIPELINE_BASE))
-
 from pipeline import QwenImageEditPipeline
 
-# 清除 pipeline 写入的 cache_functions，改用本地版本
+# Drop the cache_functions the pipeline registered and use the local copy instead
 _to_remove = [k for k in list(sys.modules) if k == "cache_functions" or k.startswith("cache_functions.")]
 for _k in _to_remove:
     del sys.modules[_k]
@@ -110,9 +105,9 @@ def _build_dataset(base_path: Path):
             continue
         instruction = prompt_path.read_text(encoding="utf-8").strip()
         img = Image.open(img_path).convert("RGB")
-        orig_w, orig_h = img.size  # 原始尺寸，保存后用于输出 resize 回原图
+        orig_w, orig_h = img.size  # source size, used to resize the result back at the end
         items.append({
-            "idx": i,               # 全局行号，用于 seed 对齐（与图片多少卡无关）
+            "idx": i,               # global row index, so seeds align no matter how many GPUs are used
             "task_type": task_type,
             "instruction": instruction,
             "instruction_language": language,
@@ -148,14 +143,14 @@ def main():
                         choices=['lagrange', 'hermite'], help='2nd-order forecast: lagrange (default) or hermite')
     args = parser.parse_args()
 
-    # ---- DDP 初始化 ----
+    # ---- DDP setup ----
     dist.init_process_group("nccl")
     rank       = dist.get_rank()
     world_size = dist.get_world_size()
     device     = f"cuda:{rank}"
     torch.cuda.set_device(rank)
 
-    # ---- 解析 checkpoint 路径 ----
+    # ---- Resolve the checkpoint paths ----
     if args.checkpoint:
         path_s1 = path_s2 = args.checkpoint
     elif args.checkpoint_dir:
@@ -178,7 +173,7 @@ def main():
     else:
         raise ValueError("Need --checkpoint or --checkpoint_dir")
 
-    # ---- 加载 predictor ----
+    # ---- Load the predictor ----
     if rank == 0:
         print(f">>> Loading predictors ...")
     predictor_stage1, predictor_stage2 = load_two_stage_predictors(path_s1, path_s2, device=device)
@@ -186,7 +181,7 @@ def main():
     predictor_stage2.register_inverse_weights(); predictor_stage2.eval()
     set_predictor_two_stage(predictor_stage1, predictor_stage2)
 
-    # ---- 加载 pipeline ----
+    # ---- Load the pipeline ----
     if rank == 0:
         print(f">>> Loading pipeline ...")
     pipe = QwenImageEditPipeline.from_pretrained(
@@ -194,7 +189,7 @@ def main():
     ).to(device)
     pipe = pipeline_with_learned_cache(pipe)
 
-    # ---- 加载数据集 ----
+    # ---- Load the dataset ----
     base_path = Path(args.dataset_path)
     dataset   = _build_dataset(base_path)
     if args.limit:
@@ -206,7 +201,7 @@ def main():
     end      = min(start + per_proc, total)
     local_dataset = dataset[start:end]
 
-    # ---- 创建Output directory（rank 0 负责） ----
+    # ---- Create the output directory (rank 0 only) ----
     if rank == 0:
         os.makedirs(args.output_dir, exist_ok=True)
         for tt in set(d["task_type"] for d in dataset):
@@ -214,7 +209,7 @@ def main():
                 (Path(args.output_dir) / "fullset" / tt / lang).mkdir(parents=True, exist_ok=True)
     dist.barrier()
 
-    # ---- cache 初始化参数 ----
+    # ---- Cache settings ----
     cache_kwargs = {
         'num_steps': args.num_steps, 'test_FLOPs': False, 'monitor_gpu_usage': False,
         'interval': args.interval, 'max_order': 2, 'min_order': 0, 'first_enhance': 3,
@@ -223,8 +218,8 @@ def main():
         'z2_forecast_method': args.z2_forecast_method,
     }
 
-    # ---- 推理循环 ----
-    times     = []   # 每张图的纯推理时间（秒）
+    # ---- Inference loop ----
+    times     = []   # per-image inference time, in seconds
     skipped   = 0
     processed = 0
 
@@ -235,7 +230,7 @@ def main():
             / f"{item['key']}.png"
         )
 
-        # ---- 断点续跑：已存在则跳过 ----
+        # ---- Resume: skip anything already on disk ----
         if save_path.exists():
             skipped += 1
             continue
@@ -246,7 +241,7 @@ def main():
 
         img = item["input_image"].resize((args.width, args.height), Image.Resampling.LANCZOS)
 
-        # ---- 计时：仅计算推理时间 ----
+        # ---- Timing: inference only ----
         torch.cuda.synchronize()
         t0 = time.perf_counter()
 
@@ -271,12 +266,12 @@ def main():
         t1 = time.perf_counter()
         times.append(t1 - t0)
 
-        # ---- 输出 resize 回原图尺寸 ----
+        # ---- Resize the output back to the source resolution ----
         orig_w, orig_h = item.get("orig_size", (args.width, args.height))
         if image.size != (orig_w, orig_h):
             image = image.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
 
-        # ---- 保存 ----
+        # ---- Save ----
         save_path.parent.mkdir(parents=True, exist_ok=True)
         image.save(save_path, quality=95)
         processed += 1
@@ -285,7 +280,7 @@ def main():
         if (i + 1) % 5 == 0:
             torch.cuda.empty_cache()
 
-    # ---- 跨卡汇总时间 ----
+    # ---- Reduce timings across ranks ----
     n_proc = len(times)
     t_proc = sum(times)
     stats  = torch.tensor([t_proc, float(n_proc)], dtype=torch.float64, device=device)
@@ -297,9 +292,9 @@ def main():
         total_n = int(stats[1].item())
         print(f"\n>>> Done! total={total}, processed={total_n}, skipped(all ranks)={total - total_n}")
         if total_n > 0:
-            print(f">>> 平均单张推理时间: {total_t / total_n:.3f}s  (合计 {total_n} 张，总耗时 {total_t:.1f}s)")
+            print(f">>> Mean inference time: {total_t / total_n:.3f}s per image  ({total_n} images, {total_t:.1f}s total)")
         else:
-            print(">>> 所有图片均已存在，无新生成（全部跳过）")
+            print(">>> Every image already exists; nothing to generate.")
 
     dist.destroy_process_group()
 

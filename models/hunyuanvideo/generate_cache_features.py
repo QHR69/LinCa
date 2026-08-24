@@ -1,8 +1,8 @@
 """
-Generate cached features for offline training（HunyuanVideo版本，单pass，和Flux一致）
+Generate cached features for offline training. HunyuanVideo needs a single pass, as FLUX does.
 
-HunyuanVideo是guidance-distilled模型，推理时只做1次forward（embedded guidance）
-不需要传统CFG的cond/uncond两次forward
+HunyuanVideo is guidance-distilled, so inference runs one forward with embedded guidance
+rather than the two passes classifier-free guidance would need.
 
 Data format:
     cache_data/
@@ -13,7 +13,7 @@ Data format:
     └── prompt_0001/
         └── ...
 
-使用方法 (VBench JSON格式):
+Usage, with a VBench JSON prompt file:
     python generate_cache_features.py \
         --vbench-json-path eval/VBench_full_info.json \
         --output_dir cache_data \
@@ -26,7 +26,7 @@ Data format:
         --seed 42 \
         ... (remaining flags match sample_video.py)
 
-使用方法 (文本文件格式):
+Usage, with a plain-text prompt file:
     python generate_cache_features.py \
         --prompt_file prompts/train.txt \
         --output_dir cache_data \
@@ -66,14 +66,14 @@ from diffusers.utils.torch_utils import randn_tensor
 
 
 def read_prompts(prompt_file: str):
-    """Read the prompt file（文本格式，每行一个prompt）"""
+    """Read a plain-text prompt file, one prompt per line."""
     with open(prompt_file, 'r', encoding='utf-8') as f:
         prompts = [line.strip() for line in f if line.strip()]
     return prompts
 
 
 def read_prompts_from_json(json_path: str):
-    """读取VBench JSON格式的prompt文件"""
+    """Read prompts from a VBench-format JSON file."""
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     prompts = [item['prompt_en'] for item in data]
@@ -88,7 +88,7 @@ def generate_features_for_prompt(
     num_steps=50,
     seed=42,
 ):
-    """为单个 prompt 生成并保存每步的特征（单pass，和Flux一致）"""
+    """Generate and store per-step features for one prompt (single pass, as with FLUX)."""
 
     args = sampler.args
     device = torch.device(sampler.device) if isinstance(sampler.device, str) else sampler.device

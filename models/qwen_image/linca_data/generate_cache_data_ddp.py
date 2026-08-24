@@ -75,7 +75,7 @@ def main(config: DataGenConfig):
     if rank == 0:
         print("Loading pipeline...")
     pipe = QwenImagePipelineForData.from_pretrained(
-        "/root/autodl-tmp/Qwen/Qwen-Image",
+        "Qwen/Qwen-Image",
         torch_dtype=torch.bfloat16
     ).to(device=device)
     
