@@ -31,7 +31,7 @@ url: https://github.com/QHR69/LinCa
 repository-code: https://github.com/QHR69/LinCa
 license: Apache-2.0
 preferred-citation:
-  type: article
+  type: conference-paper
   title: "LinCa: Accelerating Diffusion Models via Learnable Decomposed Feature Caching"
   authors:
     - family-names: Liu
@@ -59,5 +59,7 @@ preferred-citation:
     - family-names: Zhang
       given-names: Linfeng
   year: 2026
-  journal: "arXiv preprint arXiv:2608.17973"
+  collection-title: "Proceedings of the European Conference on Computer Vision (ECCV)"
+  conference:
+    name: "European Conference on Computer Vision (ECCV)"
   url: https://arxiv.org/abs/2608.17973
