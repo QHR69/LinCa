@@ -69,6 +69,9 @@ python sample_edit_single.py \
 Inputs are resized to 1024×1024 for the model and results are resized back to the
 original dimensions before saving.
 
+Instructions may be written in English or Chinese — the paper reports GEdit-Bench in
+both languages. `demo_pairs/pairs.csv` ships the English wording.
+
 ### Full GEdit-Bench sweep
 
 ```bash
