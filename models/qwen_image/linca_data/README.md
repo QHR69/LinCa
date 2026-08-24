@@ -13,7 +13,9 @@ linca_data/
 │   ├── pipeline_qwenimage_data.py      # pipeline that emits features
 │   └── transformer_qwenimage_data.py   # transformer with the extraction hook
 ├── prompts/
-│   └── prompts_train.txt        # 400 training prompts
+│   ├── prompts_train.txt        # 400 training prompts
+│   ├── DrawBench200.txt         # evaluation prompts
+│   └── prompts_for_edit.txt     # edit instructions, for the Qwen-Image-Edit data
 └── data/                        # created by the scripts
     ├── cache_data/
     │   ├── prompt_0000/
@@ -61,8 +63,9 @@ seed = base_seed + global_prompt_idx
 `base_seed` comes from `--seed` (default 0) and `global_prompt_idx` is the prompt's
 line number in the file, so prompt 0 uses seed 0, prompt 199 uses seed 199, and so on.
 
-This is the same rule `sample.py` follows, which is what makes the generated images
-usable as the PSNR/SSIM reference for accelerated sampling.
+The samplers in [`../qwen_image_linca_two_stage`](../qwen_image_linca_two_stage) seed the
+same way, which is what makes the images written here usable as the PSNR/SSIM reference
+for accelerated sampling.
 
 ## Output format
 
