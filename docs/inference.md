@@ -28,7 +28,7 @@ python sample_learned.py \
   --output_dir samples/qwen_image
 ```
 
-`transformers>=4.49` is required for Qwen2.5-VL.
+`transformers>=4.51` is required for Qwen2.5-VL.
 
 ## Qwen-Image-Edit
 
